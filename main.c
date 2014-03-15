@@ -14,7 +14,11 @@
 
 static volatile uint8_t _count_idle = 0, _flag_5hz = 0, _flag_125hz = 0;
 static volatile uint8_t _status_MP6050 = MPU6050_DATA_WAITING;
-static uint8_t _rx_buffer[10] = {0};
+union {
+  struct str_MPU6050Data s;
+  uint8_t bytes[sizeof(struct str_MPU6050Data)];
+} mpu6050_data;
+
 
 
 // ============================================================================+
@@ -46,11 +50,11 @@ int16_t main(void)
     if (I2CIsIdle()) {
       if (_status_MP6050 == MPU6050_READING_DATA) {
         if (UCSR0A & _BV(UDRE0))  // Transfer buffer is clear
-          UDR0 = _rx_buffer[0] + 128;
+          UDR0 = mpu6050_data.bytes[8] + 128;
         _status_MP6050 = MPU6050_IDLE;
       } else  if (_status_MP6050 == MPU6050_DATA_WAITING ||
           _count_idle > IDLE_LIMIT) {
-        ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_rx_buffer[0]);
+        ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &mpu6050_data.bytes[0]);
         _status_MP6050 = MPU6050_READING_DATA;
         _count_idle = 0;
       }
@@ -66,7 +70,7 @@ ISR(INT0_vect)
   PORTB ^= _BV(PORTB5);  // Red LED Heartbeat
 
   if (I2CIsIdle()) {
-    ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_rx_buffer[0]);
+    ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &mpu6050_data.bytes[0]);
     _status_MP6050 = MPU6050_READING_DATA;
     _count_idle = 0;
   } else {
