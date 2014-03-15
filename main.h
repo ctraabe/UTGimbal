@@ -7,10 +7,12 @@
 #define TIMER0_FREQUENCY 125
 #define UART_BAUD 500000L
 
+#define IDLE_LIMIT 254
+
 enum {
   MPU6050_IDLE,
-  MPU6050_NEW_DATA,
-  MPU6050_READING_NEW_DATA,
+  MPU6050_READING_DATA,
+  MPU6050_DATA_WAITING,
 };
 
 int16_t main(void) __attribute__ ((noreturn));
