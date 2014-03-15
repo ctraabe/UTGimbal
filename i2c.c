@@ -57,8 +57,8 @@ void ResetI2C(void)
 }
 
 // -----------------------------------------------------------------------------
-void RequestBytesI2C(uint8_t slave_address, uint8_t *rx_destination_ptr,
-  uint8_t rx_destination_len)
+void RequestBytesI2C(uint8_t slave_address,
+  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
 {
   _slave_address = slave_address;
   _rx_destination_ptr = rx_destination_ptr;
@@ -68,7 +68,7 @@ void RequestBytesI2C(uint8_t slave_address, uint8_t *rx_destination_ptr,
 }
 
 void RequestFromAddress(uint8_t slave_address, uint8_t data_address,
-    uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+    volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
 {
   _data_address = data_address;
   SendThenReceiveI2C(slave_address, &_data_address, 1, rx_destination_ptr,
@@ -88,7 +88,7 @@ void SendBytesI2C(uint8_t slave_address, uint8_t *tx_source_ptr,
 
 // -----------------------------------------------------------------------------
 void SendThenReceiveI2C(uint8_t slave_address, uint8_t *tx_source_ptr,
-    uint8_t tx_source_len, uint8_t *rx_destination_ptr,
+    uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
     uint8_t rx_destination_len)
 {
   _slave_address = slave_address;

@@ -53,6 +53,6 @@ struct str_MPU6050Data
 
 void InitMPU6050(uint8_t mpu6050_address);
 
-void ReadMPU6050(uint8_t mpu6050_address, uint8_t *rx_destination_ptr);
+void ReadMPU6050(uint8_t mpu6050_address, volatile uint8_t *rx_destination_ptr);
 
 #endif //MPU6050_H

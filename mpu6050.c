@@ -51,7 +51,7 @@ void InitMPU6050(uint8_t mpu6050_address)
 }
 
 // -----------------------------------------------------------------------------
-void ReadMPU6050(uint8_t mpu6050_address, uint8_t *rx_destination_ptr)
+void ReadMPU6050(uint8_t mpu6050_address, volatile uint8_t *rx_destination_ptr)
 {
   RequestFromAddress(mpu6050_address, MPU6050_RA_ACCEL_XOUT_H,
     rx_destination_ptr, 14);

@@ -13,11 +13,11 @@
 // Private data:
 
 static volatile uint8_t _count_idle = 0, _flag_5hz = 0, _flag_125hz = 0;
-static volatile uint8_t _status_MP6050 = MPU6050_DATA_WAITING;
-union {
+static volatile uint8_t _status_MPU6050 = MPU6050_DATA_WAITING;
+volatile union {
   struct str_MPU6050Data s;
   uint8_t bytes[sizeof(struct str_MPU6050Data)];
-} mpu6050_data;
+} _mpu6050_data;
 
 
 
@@ -33,11 +33,19 @@ void Initialization(void)
 
   InitI2C(I2C_SPEED);
   InitUART(UART_BAUD);
-  InitTimer0(TIMER0_FREQUENCY);
+  // InitTimer0(TIMER0_FREQUENCY);
 
   sei();  // Enable interrupts
 
   InitMPU6050(MPU6050_DEFAULT_ADDRESS);
+}
+
+// -----------------------------------------------------------------------------
+void swap_volatile_bytes(volatile uint8_t *byte_array)
+{
+  uint8_t temp = byte_array[0];
+  byte_array[0] = byte_array[1];
+  byte_array[1] = temp;
 }
 
 // -----------------------------------------------------------------------------
@@ -47,20 +55,26 @@ int16_t main(void)
 
   // Main loop
   for (;;) {  // Preferred over while(1)
-    if (I2CIsIdle()) {
-      if (_status_MP6050 == MPU6050_READING_DATA) {
+    if (_status_MPU6050 != MPU6050_IDLE && I2CIsIdle()) {
+      if (_status_MPU6050 == MPU6050_READING_DATA) {
+        _status_MPU6050 = MPU6050_IDLE;
+        swap_volatile_bytes(&_mpu6050_data.bytes[0]);
+        swap_volatile_bytes(&_mpu6050_data.bytes[2]);
+        swap_volatile_bytes(&_mpu6050_data.bytes[4]);
+        swap_volatile_bytes(&_mpu6050_data.bytes[8]);
+        swap_volatile_bytes(&_mpu6050_data.bytes[10]);
+        swap_volatile_bytes(&_mpu6050_data.bytes[12]);
         if (UCSR0A & _BV(UDRE0))  // Transfer buffer is clear
-          UDR0 = mpu6050_data.bytes[8] + 128;
-        _status_MP6050 = MPU6050_IDLE;
-      } else  if (_status_MP6050 == MPU6050_DATA_WAITING ||
+          UDR0 = (uint8_t)((_mpu6050_data.s.x_gyro >> 8) + 128);
+      } else if (_status_MPU6050 == MPU6050_DATA_WAITING ||
           _count_idle > IDLE_LIMIT) {
-        ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &mpu6050_data.bytes[0]);
-        _status_MP6050 = MPU6050_READING_DATA;
+        ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_mpu6050_data.bytes[0]);
+        _status_MPU6050 = MPU6050_READING_DATA;
         _count_idle = 0;
       }
-      if (TickTimer0())
-        ++_count_idle;
     }
+    if (TickTimer0())
+      ++_count_idle;
   }
 }
 
@@ -70,10 +84,10 @@ ISR(INT0_vect)
   PORTB ^= _BV(PORTB5);  // Red LED Heartbeat
 
   if (I2CIsIdle()) {
-    ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &mpu6050_data.bytes[0]);
-    _status_MP6050 = MPU6050_READING_DATA;
+    ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_mpu6050_data.bytes[0]);
+    _status_MPU6050 = MPU6050_READING_DATA;
     _count_idle = 0;
   } else {
-    _status_MP6050 = MPU6050_DATA_WAITING;
+    _status_MPU6050 = MPU6050_DATA_WAITING;
   }
 }
