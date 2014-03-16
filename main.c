@@ -64,8 +64,14 @@ int16_t main(void)
         swap_volatile_bytes(&_mpu6050_data.bytes[8]);
         swap_volatile_bytes(&_mpu6050_data.bytes[10]);
         swap_volatile_bytes(&_mpu6050_data.bytes[12]);
+
+        static union {
+          int32_t int32;
+          uint8_t bytes[4];
+        } HPIntegral;
+        HPIntegral.int32 += _mpu6050_data.s.x_gyro;
         if (UCSR0A & _BV(UDRE0))  // Transfer buffer is clear
-          UDR0 = (uint8_t)((_mpu6050_data.s.x_gyro >> 8) + 128);
+          UDR0 = HPIntegral.bytes[2] + 128;
       } else if (_status_MPU6050 == MPU6050_DATA_WAITING ||
           _count_idle > IDLE_LIMIT) {
         ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_mpu6050_data.bytes[0]);
