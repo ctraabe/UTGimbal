@@ -15,6 +15,12 @@ enum {
   MPU6050_DATA_WAITING,
 };
 
+enum {
+  MAG3110_IDLE,
+  MAG3110_READING_DATA,
+  MAG3110_DATA_WAITING,
+};
+
 int16_t main(void) __attribute__ ((noreturn));
 
 #endif //_MAIN_H
