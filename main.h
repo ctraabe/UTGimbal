@@ -3,11 +3,11 @@
 
 #include <inttypes.h>
 
-#define I2C_SPEED 400000L
-#define TIMER0_FREQUENCY 125
-#define UART_BAUD 500000L
+#define I2C_SPEED (400000L)
+#define TIMER0_FREQUENCY (125)
+#define UART_BAUD (500000L)
 
-#define IDLE_LIMIT 254
+#define IDLE_LIMIT (254)
 
 enum {
   MPU6050_IDLE,

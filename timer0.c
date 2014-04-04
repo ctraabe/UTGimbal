@@ -13,7 +13,7 @@ static volatile bool _tick = FALSE;
 // ============================================================================+
 // Public functions:
 
-void InitTimer0(uint8_t frequency)
+void Timer0Init(uint8_t frequency)
 {
   TCCR0A = _BV(WGM01);  // Set "Clear Timer on Compare" mode
   TCCR0B = _BV(CS02) | _BV(CS00);  // Set prescaler to 1/1024
@@ -24,7 +24,7 @@ void InitTimer0(uint8_t frequency)
 }
 
 // -----------------------------------------------------------------------------
-bool TickTimer0(void)
+bool Timer0Tick(void)
 {
   cli();
   bool ret = _tick;

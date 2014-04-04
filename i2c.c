@@ -4,23 +4,32 @@
 #include <avr/interrupt.h>
 #include <util/twi.h>
 
+#include "boolean.h"
+
 
 // ============================================================================+
 // Private data:
 
-enum { I2C_MODE_IDLE, I2C_MODE_TX, I2C_MODE_RX, I2C_MODE_TX_THEN_RX };
+enum I2CMode { 
+  I2C_MODE_IDLE,
+  I2C_MODE_TX,
+  I2C_MODE_RX,
+  I2C_MODE_TX_THEN_RX
+};
 
-volatile uint8_t _i2c_error = I2C_ERROR_NONE, _i2c_mode = I2C_MODE_IDLE;
-volatile uint8_t _rx_destination_len, *_rx_destination_ptr;
-volatile uint8_t _tx_source_len, *_tx_source_ptr;
+static volatile enum I2CError _i2c_error = I2C_ERROR_NONE;
+static volatile enum I2CMode _i2c_mode = I2C_MODE_IDLE;
+static volatile uint8_t _rx_destination_len = 0, *_rx_destination_ptr = 0;
+static volatile uint8_t _tx_source_len = 0, *_tx_source_ptr = 0;
+static volatile bool _register_address_specified = FALSE;
 
-uint8_t _data_address, _slave_address;
+static uint8_t _register_address = 0x00, _slave_address = 0x00;
 
 
 // ============================================================================+
 // Private function declarations:
 
-static void I2CStart(uint8_t i2c_mode);
+static void I2CStart(enum I2CMode i2c_mode);
 static void I2CStop(void);
 
 
@@ -28,7 +37,7 @@ static void I2CStop(void);
 // Public Functions:
 
 // Accessors
-uint8_t i2c_error(void)
+enum I2CError i2c_error(void)
 {
   return _i2c_error;
 }
@@ -40,7 +49,7 @@ uint8_t I2CIsIdle(void)
 }
 
 // -----------------------------------------------------------------------------
-void InitI2C(uint32_t speed)
+void I2CInit(uint32_t speed)
 {
   uint8_t sreg = SREG;  // Save the global interrupt flag.
   cli();  // Disable interrupts.
@@ -51,14 +60,20 @@ void InitI2C(uint32_t speed)
 }
 
 // -----------------------------------------------------------------------------
-void ResetI2C(void)
+void I2CReset(void)
 {
   I2CStop();
 }
 
 // -----------------------------------------------------------------------------
-void RequestBytesI2C(uint8_t slave_address,
-  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+void I2CWaitUntilCompletion(void)
+{
+  while (_i2c_mode != I2C_MODE_IDLE) continue;
+}
+
+// -----------------------------------------------------------------------------
+void I2CRxBytes(uint8_t slave_address, volatile uint8_t *rx_destination_ptr,
+  uint8_t rx_destination_len)
 {
   _slave_address = slave_address;
   _rx_destination_ptr = rx_destination_ptr;
@@ -67,16 +82,18 @@ void RequestBytesI2C(uint8_t slave_address,
   I2CStart(I2C_MODE_RX);
 }
 
-void RequestFromAddress(uint8_t slave_address, uint8_t data_address,
-    volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+// -----------------------------------------------------------------------------
+void I2CRxBytesFromRegister(uint8_t slave_address, uint8_t register_address,
+  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
 {
-  _data_address = data_address;
-  SendThenReceiveI2C(slave_address, &_data_address, 1, rx_destination_ptr,
+  _register_address = register_address;
+  _register_address_specified = TRUE;
+  I2CTxThenRxBytes(slave_address, 0, 0, rx_destination_ptr,
     rx_destination_len);
 }
 
 // -----------------------------------------------------------------------------
-void SendBytesI2C(uint8_t slave_address, uint8_t *tx_source_ptr,
+void I2CTxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   uint8_t tx_source_len)
 {
   _slave_address = slave_address;
@@ -87,9 +104,18 @@ void SendBytesI2C(uint8_t slave_address, uint8_t *tx_source_ptr,
 }
 
 // -----------------------------------------------------------------------------
-void SendThenReceiveI2C(uint8_t slave_address, uint8_t *tx_source_ptr,
-    uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
-    uint8_t rx_destination_len)
+void I2CTxBytesToRegister(uint8_t slave_address, uint8_t register_address,
+  uint8_t *tx_source_ptr, uint8_t tx_source_len)
+{
+  _register_address = register_address;
+  _register_address_specified = TRUE;
+  I2CTxBytes(slave_address, tx_source_ptr, tx_source_len);
+}
+
+// -----------------------------------------------------------------------------
+void I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
+  uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
+  uint8_t rx_destination_len)
 {
   _slave_address = slave_address;
   _tx_source_ptr = tx_source_ptr;
@@ -127,7 +153,7 @@ static void I2CRxNAck(void)
 
 // -----------------------------------------------------------------------------
 // Give a start or repeated start signal.
-static void I2CStart(uint8_t i2c_mode)
+static void I2CStart(enum I2CMode i2c_mode)
 {
   _i2c_mode = i2c_mode;
   TWCR = _BV(TWINT) | _BV(TWSTA) | _BV(TWEN) | _BV(TWIE);
@@ -187,6 +213,11 @@ static void ProcessTxInterrupt(void)
       I2CTxByte(_slave_address + TW_WRITE);
       break;
     case TW_MT_SLA_ACK:  // SLA+W transmitted, ACK received
+      if (_register_address_specified) {
+        I2CTxByte(_register_address);
+        _register_address_specified = FALSE;
+        break;
+      }
     case TW_MT_DATA_ACK:  // Data transmitted, ACK received
       if (_tx_source_len > 0) {
         I2CTxBuffer();

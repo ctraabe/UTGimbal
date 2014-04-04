@@ -16,11 +16,11 @@
 static volatile uint8_t _count_idle = 0, _flag_5hz = 0, _flag_125hz = 0;
 static volatile uint8_t _status_MPU6050 = MPU6050_DATA_WAITING;
 static volatile uint8_t _status_MAG3110 = MAG3110_DATA_WAITING;
-volatile union {
+static volatile union {
   struct str_MPU6050Data s;
   uint8_t bytes[sizeof(struct str_MPU6050Data)];
 } _mpu6050_data;
-volatile union {
+static volatile union {
   struct str_MAG3110Data s;
   uint8_t bytes[sizeof(struct str_MAG3110Data)];
 } _mag3110_data;
@@ -29,7 +29,7 @@ volatile union {
 // ============================================================================+
 // Private functions:
 
-void Initialization(void)
+static void Initialization(void)
 {
   DDRB |= _BV(DDB5);  // Set pin PB4 to output (attached to red LED)
   DDRD &= ~_BV(DDD3) & ~_BV(DDD2);  // Set pins D3 (int1) and D2 (int0) to input
@@ -38,18 +38,18 @@ void Initialization(void)
   // Set the interrupts int1 and int0 to trigger on the rising edge
   EICRA |= _BV(ISC11) | _BV(ISC10) | _BV(ISC01) | _BV(ISC00);
 
-  InitI2C(I2C_SPEED);
-  InitUART(UART_BAUD);
-  InitTimer0(TIMER0_FREQUENCY);
+  I2CInit(I2C_SPEED);
+  UARTInit(UART_BAUD);
+  Timer0Init(TIMER0_FREQUENCY);
 
   sei();  // Enable interrupts
 
-  // InitMPU6050(MPU6050_DEFAULT_ADDRESS);
-  InitMAG3110();
+  // MPU6050Init();
+  MAG3110Init();
 }
 
 // -----------------------------------------------------------------------------
-void swap_volatile_bytes(volatile uint8_t *byte_array)
+static inline void SwapVolatileBytes(volatile uint8_t *byte_array)
 {
   uint8_t temp = byte_array[0];
   byte_array[0] = byte_array[1];
@@ -68,16 +68,16 @@ int16_t main(void)
         _status_MAG3110 = MAG3110_IDLE;
 
         // Atmel is apparently uses big endian
-        swap_volatile_bytes(&_mag3110_data.bytes[0]);
-        swap_volatile_bytes(&_mag3110_data.bytes[2]);
-        swap_volatile_bytes(&_mag3110_data.bytes[4]);
+        SwapVolatileBytes(&_mag3110_data.bytes[0]);
+        SwapVolatileBytes(&_mag3110_data.bytes[2]);
+        SwapVolatileBytes(&_mag3110_data.bytes[4]);
 
         if (UCSR0A & _BV(UDRE0))  // Transfer buffer is clear
           UDR0 = (uint8_t)((_mag3110_data.s.x_magnetometer >> 2) + 128);
       } else if (_status_MAG3110 == MAG3110_DATA_WAITING) {
         // Prevent interrupts from attempting to start i2c during this call
         cli();
-        ReadMAG3110(&_mag3110_data.bytes[0]);
+        MAG3110Read(&_mag3110_data.bytes[0]);
         sei();
         _status_MAG3110 = MAG3110_READING_DATA;
       }
@@ -87,13 +87,13 @@ int16_t main(void)
       if (_status_MPU6050 == MPU6050_READING_DATA) {
         _status_MPU6050 = MPU6050_IDLE;
 
-        // Atmel is apparently uses big endian
-        swap_volatile_bytes(&_mpu6050_data.bytes[0]);
-        swap_volatile_bytes(&_mpu6050_data.bytes[2]);
-        swap_volatile_bytes(&_mpu6050_data.bytes[4]);
-        swap_volatile_bytes(&_mpu6050_data.bytes[8]);
-        swap_volatile_bytes(&_mpu6050_data.bytes[10]);
-        swap_volatile_bytes(&_mpu6050_data.bytes[12]);
+        // AVR is little-endian, MPU5060 is big-endian
+        SwapVolatileBytes(&_mpu6050_data.bytes[0]);
+        SwapVolatileBytes(&_mpu6050_data.bytes[2]);
+        SwapVolatileBytes(&_mpu6050_data.bytes[4]);
+        SwapVolatileBytes(&_mpu6050_data.bytes[8]);
+        SwapVolatileBytes(&_mpu6050_data.bytes[10]);
+        SwapVolatileBytes(&_mpu6050_data.bytes[12]);
 
         static union {
           int32_t int32;
@@ -106,14 +106,14 @@ int16_t main(void)
           _count_idle > IDLE_LIMIT) {
         // Prevent interrupts from attempting to start i2c during this call
         cli();
-        ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_mpu6050_data.bytes[0]);
+        MPU6050Read(&_mpu6050_data.bytes[0]);
         sei();
         _status_MPU6050 = MPU6050_READING_DATA;
         _count_idle = 0;
       }
     }
 
-    if (TickTimer0()) {
+    if (Timer0Tick()) {
       ++_count_idle;
     }
   }
@@ -129,7 +129,7 @@ ISR(INT0_vect)
   if (I2CIsIdle()) {
     // Note: this interrupt (int0) has highest priority, so it is not necessary
     // to protect this call from other interrupts.
-    ReadMPU6050(MPU6050_DEFAULT_ADDRESS, &_mpu6050_data.bytes[0]);
+    MPU6050Read(&_mpu6050_data.bytes[0]);
     _status_MPU6050 = MPU6050_READING_DATA;
     _count_idle = 0;
   } else {
@@ -147,7 +147,7 @@ ISR(INT1_vect)
   if (I2CIsIdle()) {
     // Prevent other interrupts from attempting to start i2c during this call
     cli();
-    ReadMAG3110(&_mag3110_data.bytes[0]);
+    MAG3110Read(&_mag3110_data.bytes[0]);
     sei();
     _status_MAG3110 = MAG3110_READING_DATA;
     _count_idle = 0;

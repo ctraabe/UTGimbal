@@ -3,6 +3,6 @@
 
 #include <inttypes.h>
 
-void InitUART(uint32_t baud);
+void UARTInit(uint32_t baud);
 
 #endif //_UART_H

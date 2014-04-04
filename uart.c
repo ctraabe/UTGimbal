@@ -13,7 +13,7 @@ static volatile uint8_t _rx_byte = 0;
 // ============================================================================+
 // Public functions:
 
-void InitUART(uint32_t baud)
+void UARTInit(uint32_t baud)
 {
   uint16_t ubrr0 = (uint16_t)(F_CPU / (8 * baud) - 1);
 
