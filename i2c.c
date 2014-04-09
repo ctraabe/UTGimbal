@@ -7,10 +7,10 @@
 #include "boolean.h"
 
 
-// ============================================================================+
+// =============================================================================
 // Private data:
 
-enum I2CMode { 
+enum I2CMode {
   I2C_MODE_IDLE,
   I2C_MODE_TX,
   I2C_MODE_RX,
@@ -26,29 +26,25 @@ static volatile bool _register_address_specified = FALSE;
 static uint8_t _register_address = 0x00, _slave_address = 0x00;
 
 
-// ============================================================================+
+// =============================================================================
 // Private function declarations:
 
 static void I2CStart(enum I2CMode i2c_mode);
 static void I2CStop(void);
 
 
-// ============================================================================+
-// Public Functions:
-
+// =============================================================================
 // Accessors
+
 enum I2CError i2c_error(void)
 {
   return _i2c_error;
 }
 
-// -----------------------------------------------------------------------------
-uint8_t I2CIsIdle(void)
-{
-  return _i2c_mode == I2C_MODE_IDLE;
-}
 
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Public Functions:
+
 void I2CInit(uint32_t speed)
 {
   uint8_t sreg = SREG;  // Save the global interrupt flag.
@@ -66,9 +62,9 @@ void I2CReset(void)
 }
 
 // -----------------------------------------------------------------------------
-void I2CWaitUntilCompletion(void)
+uint8_t I2CIsIdle(void)
 {
-  while (_i2c_mode != I2C_MODE_IDLE) continue;
+  return _i2c_mode == I2C_MODE_IDLE;
 }
 
 // -----------------------------------------------------------------------------
@@ -126,8 +122,14 @@ void I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   I2CStart(I2C_MODE_TX_THEN_RX);
 }
 
+// -----------------------------------------------------------------------------
+void I2CWaitUntilCompletion(void)
+{
+  while (_i2c_mode != I2C_MODE_IDLE) continue;
+}
 
-// ============================================================================+
+
+// =============================================================================
 // Private Functions:
 
 static void I2CReadByte(void)

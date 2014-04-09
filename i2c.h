@@ -13,12 +13,11 @@ enum I2CError {
 
 // Accessors
 enum I2CError i2c_error(void);
-uint8_t I2CIsIdle(void);
 
-
+// Public Functions
 void I2CInit(uint32_t speed);
 void I2CReset(void);
-void I2CWaitUntilCompletion(void);
+uint8_t I2CIsIdle(void);
 
 void I2CRxBytes(uint8_t slave_address, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len);
@@ -31,5 +30,7 @@ void I2CTxBytesToRegister(uint8_t slave_address, uint8_t register_address,
 void I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len);
+
+void I2CWaitUntilCompletion(void);
 
 #endif  // _I2C_H

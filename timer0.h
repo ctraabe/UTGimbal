@@ -5,7 +5,8 @@
 
 #include"boolean.h"
 
-void Timer0Init(uint8_t frequency);
+void Timer0Init(void);
 bool Timer0Tick(void);
+void Timer0Delay(uint16_t ms);
 
 #endif //_TIMER0_H

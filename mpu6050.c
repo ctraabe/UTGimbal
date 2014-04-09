@@ -1,11 +1,28 @@
 #include "mpu6050.h"
 
+#include <stdlib.h>
 #include <avr/io.h>
 
+#include "endian.h"
 #include "i2c.h"
 
 
-// ============================================================================+
+// =============================================================================
+// Private data:
+
+struct str_MPU6050Data
+{
+  int16_t x_accelerometer;
+  int16_t y_accelerometer;
+  int16_t z_accelerometer;
+  int16_t temperature;
+  int16_t x_gyro;
+  int16_t y_gyro;
+  int16_t z_gyro;
+};
+
+
+// =============================================================================
 // Public functions:
 
 void MPU6050Init(void)
@@ -42,7 +59,36 @@ void MPU6050Init(void)
 }
 
 // -----------------------------------------------------------------------------
-void MPU6050Read(volatile uint8_t *rx_destination_ptr)
+enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
+  uint8_t rx_destination_length, uint8_t *remaining)
+{
+  uint16_t fifo_data_length;
+
+  // Get the number of bytes currently in the FIFO
+  // TODO: Make this non-blocking
+  uint8_t *rx_buffer = (uint8_t *)malloc(sizeof(uint16_t));
+  I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_COUNT_H,
+    rx_buffer, sizeof(uint16_t));
+  I2CWaitUntilCompletion();
+  fifo_data_length = BigEndianArrayToU16(rx_buffer);
+  free(rx_buffer);
+
+  if (fifo_data_length < rx_destination_length) {
+    *remaining = 0;
+    return MPU6050_ERROR_FIFO_EMPTY;
+  }
+  // TODO: check for FIFO overflow
+  // return MPU6050_ERROR_FIFO_FULL;
+
+  I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_R_W,
+    rx_destination_ptr, rx_destination_length);
+
+  *remaining = fifo_data_length / rx_destination_length - 1;
+  return MPU6050_ERROR_NONE;
+}
+
+// -----------------------------------------------------------------------------
+void MPU6050ReadRaw(volatile uint8_t *rx_destination_ptr)
 {
   I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_ACCEL_XOUT_H,
     rx_destination_ptr, sizeof(struct str_MPU6050Data));
