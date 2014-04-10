@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include <math.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
@@ -56,7 +57,7 @@ int16_t main(void)
 
       static uint8_t uart_tx_buffer[80];
       uint8_t i = 0;
-
+/*
       i += PrintS32(dmp_quaternion(0), uart_tx_buffer + i);
       i += PrintSpace(uart_tx_buffer + i);
       i += PrintS32(dmp_quaternion(1), uart_tx_buffer + i);
@@ -65,10 +66,17 @@ int16_t main(void)
       i += PrintSpace(uart_tx_buffer + i);
       i += PrintS32(dmp_quaternion(3), uart_tx_buffer + i);
       i += PrintEOL(uart_tx_buffer + i);
-/*
+
       i += PrintU8(error, uart_tx_buffer + i);
       i += PrintEOL(uart_tx_buffer + i);
 */
+      float temp = sqrt(
+        dmp_quaternion(0) * dmp_quaternion(0) +
+        dmp_quaternion(1) * dmp_quaternion(1) +
+        dmp_quaternion(2) * dmp_quaternion(2) +
+        dmp_quaternion(3) * dmp_quaternion(3));
+      i += PrintS32((uint32_t)temp, uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
       UARTTxBytes(uart_tx_buffer, i);
 
       _status_MPU6050 = MPU6050_IDLE;
