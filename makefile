@@ -9,9 +9,9 @@ MCU     = atmega168
 F_CPU   = 16000000L
 BAUD    = 19200
 
-LFLAGS  = -std=gnu99 -Ofast -mmcu=$(MCU) -Wall -pedantic -Wstrict-prototypes \
-          -Wundef -Werror -fshort-enums -ffreestanding -Wl,--relax
-CFLAGS  = -c -g $(LFLAGS) -Wa,-adhlns=$(<:%.c=%.lst) -DF_CPU="$(F_CPU)"
+LFLAGS  = -std=gnu99 -Ofast -mmcu=$(MCU) -pedantic -Werror -Wall -Wextra \
+          -Wstrict-prototypes -Wundef -fshort-enums -ffreestanding -Wl,--relax
+CFLAGS  = -c -g -DF_CPU="$(F_CPU)" $(LFLAGS) -Wa,-adhlns=$(<:%.c=%.lst)
 SOURCES = $(wildcard *.c)
 DEPENDS = $(SOURCES:.c=.d)
 OBJECTS = $(SOURCES:.c=.o)
@@ -38,7 +38,7 @@ $(HEX): $(ELF)
 # Target to build the .elf file
 # NOTE: -lm includes the math library (libm.a)
 $(ELF): $(OBJECTS)
-	$(CC) $(LFLAGS) -lm -o $(ELF) $(OBJECTS)
+	$(CC) $(LFLAGS) -o $(ELF) $(OBJECTS) -lm
 
 # Include the dependency "makefiles"
 -include $(DEPENDS)

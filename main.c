@@ -9,12 +9,15 @@
 #include "mag3110.h"
 #include "mpu6050.h"
 #include "print.h"
-#include "uart.h"
 #include "timer0.h"
+#include "uart.h"
+#include "utilities.h"
 
 
 // =============================================================================
 // Private data:
+
+#define R2D (180.0 / M_PI)
 
 static volatile uint8_t _count_idle = 0, _flag_5hz = 0, _flag_125hz = 0;
 static volatile enum MPU6050Mode _status_MPU6050 = MPU6050_DATA_WAITING;
@@ -55,28 +58,53 @@ int16_t main(void)
       // enum MPU6050Error error = DMPReadFIFO();
       DMPReadFIFO();
 
-      static uint8_t uart_tx_buffer[80];
+      static uint8_t uart_tx_buffer[80] = {0};
       uint8_t i = 0;
 /*
-      i += PrintS32(dmp_quaternion(0), uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(0) * 1000.0), uart_tx_buffer + i);
       i += PrintSpace(uart_tx_buffer + i);
-      i += PrintS32(dmp_quaternion(1), uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(1) * 1000.0), uart_tx_buffer + i);
       i += PrintSpace(uart_tx_buffer + i);
-      i += PrintS32(dmp_quaternion(2), uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(2) * 1000.0), uart_tx_buffer + i);
       i += PrintSpace(uart_tx_buffer + i);
-      i += PrintS32(dmp_quaternion(3), uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(3) * 1000.0), uart_tx_buffer + i);
       i += PrintEOL(uart_tx_buffer + i);
 
-      i += PrintU8(error, uart_tx_buffer + i);
+      i += PrintS16(dmp_accelerometer(0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_accelerometer(1), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_accelerometer(2), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(1), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(2), uart_tx_buffer + i);
       i += PrintEOL(uart_tx_buffer + i);
 */
-      float temp = sqrt(
-        dmp_quaternion(0) * dmp_quaternion(0) +
-        dmp_quaternion(1) * dmp_quaternion(1) +
-        dmp_quaternion(2) * dmp_quaternion(2) +
-        dmp_quaternion(3) * dmp_quaternion(3));
-      i += PrintS32((uint32_t)temp, uart_tx_buffer + i);
+      static int16_t samples[256] = {0};
+      static uint8_t index = 0;
+      static int32_t sum = 0;
+      i += PrintS16(dmp_accelerometer(0), uart_tx_buffer + i);
+      // i += PrintS16(dmp_gyro(0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(S16MovingAverage256(dmp_accelerometer(0), samples, &index,
+        &sum), uart_tx_buffer + i);
+      // i += PrintS16(S16MovingAverage256(dmp_gyro(0), samples, &index, &sum),
+      //   uart_tx_buffer + i);
       i += PrintEOL(uart_tx_buffer + i);
+/*
+      i += PrintU8(error, uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
+
+      i += PrintS16((int16_t)(dmp_roll_angle() * R2D), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_pitch_angle() * R2D), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_yaw_angle() * R2D), uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
+*/
       UARTTxBytes(uart_tx_buffer, i);
 
       _status_MPU6050 = MPU6050_IDLE;

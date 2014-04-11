@@ -3,23 +3,91 @@
 
 #include <string.h>
 
+#include "boolean.h"
 #include "endian.h"
 #include "i2c.h"
+#include "quaternion.h"
 #include "timer0.h"
 
+// Set the following to 1 or 0 to enable/disable
+#define DMP_OUTPUT_ACCELEROMETER   (1)
+#define DMP_OUTPUT_GYRO            (1)
+#define DMP_CALIBRATED_GYRO_OUTPUT (1)
+
 #define DMP_BANK_SIZE (256)
+#define DMP_FIFO_DATA_SIZE (28)
+
+// #define DMP_FIFO_DATA_SIZE (4 * sizeof(int32_t)
+//   + DMP_OUTPUT_ACCELEROMETER * 3 * sizeof(int16_t)
+//   + DMP_OUTPUT_GYRO * 3 * sizeof(int16_t))
+
+// Quaternion from InvenSense's MotionDriver v5.1 are composed of an array of
+// 32-bit fixed-point signed integers in Q1.30 form (i.e. 1L<<30 = 1.0f).
 #define DMP_QUATERNION_FIXED_POINT (1L << 30)
+
+#define DMP_EULER_ANGLES_CLEAR (0)
+#define DMP_EULER_ANGLES_ROLL  (1<<0)
+#define DMP_EULER_ANGLES_PITCH (1<<1)
+#define DMP_EULER_ANGLES_YAW   (1<<2)
 
 enum MPU6050MemoryAccessMode {
   READ,
   WRITE,
 };
 
-static volatile float _dmp_quaternion[4] = {0.0};
+static float _dmp_quaternion[4] = {0.0}, _dmp_roll_angle = 0.0,
+  _dmp_pitch_angle = 0.0, _dmp_yaw_angle = 0.0;
+static int16_t _dmp_acclerometer[3] = {0}, _dmp_gyro[3] = {0};
+static uint8_t _dmp_euler_angles = DMP_EULER_ANGLES_CLEAR;
+
+static inline float q0_squared(void)
+{
+  static float _q0_squared = 0.0;
+  if (!(_dmp_euler_angles & (DMP_EULER_ANGLES_ROLL | DMP_EULER_ANGLES_YAW)))
+    _q0_squared = _dmp_quaternion[0] * _dmp_quaternion[0];
+  return _q0_squared;
+}
 
 float dmp_quaternion(uint8_t index)
 {
   return _dmp_quaternion[index];
+}
+
+int16_t dmp_accelerometer(uint8_t index)
+{
+  return _dmp_acclerometer[index];
+}
+
+int16_t dmp_gyro(uint8_t index)
+{
+  return _dmp_gyro[index];
+}
+
+float dmp_roll_angle(void)
+{
+  if (!(_dmp_euler_angles & DMP_EULER_ANGLES_ROLL)) {
+    _dmp_roll_angle = RollAngleFromQuaternion(_dmp_quaternion, q0_squared());
+    _dmp_euler_angles |= DMP_EULER_ANGLES_ROLL;
+  }
+  return _dmp_roll_angle;
+}
+
+float dmp_pitch_angle(void)
+{
+  if (!(_dmp_euler_angles & DMP_EULER_ANGLES_PITCH)) {
+    _dmp_pitch_angle = PitchAngleFromQuaternion(_dmp_quaternion);
+    _dmp_euler_angles |= DMP_EULER_ANGLES_PITCH;
+  }
+  return _dmp_pitch_angle;
+}
+
+float dmp_yaw_angle(void)
+{
+  if (!(_dmp_euler_angles & DMP_EULER_ANGLES_YAW)) {
+    _dmp_yaw_angle = YawAngleFromQuaternion(_dmp_quaternion, q0_squared());
+    _dmp_euler_angles |= DMP_EULER_ANGLES_YAW;
+  }
+  return _dmp_yaw_angle;
 }
 
 // -----------------------------------------------------------------------------
@@ -165,9 +233,42 @@ void DMPInit(void)
   tx_buffer[2] = 0xc5;
   MPU6050AccessDMPMemory(1062, tx_buffer, 3, WRITE);
 
-  // Enable Quaternion and gyro calibration features
+  // Don't send gesture data to FIFO
   tx_buffer[0] = 0xD8;
   MPU6050AccessDMPMemory(2742, tx_buffer, 1, WRITE);
+
+  // Enable accelerometer output to FIFO
+  if (DMP_OUTPUT_ACCELEROMETER) {
+    tx_buffer[0] = 0xC0;
+    tx_buffer[1] = 0xC8;
+    tx_buffer[2] = 0xC2;
+    MPU6050AccessDMPMemory(2727, tx_buffer, 3, WRITE);
+  }
+
+  // Enable gyro output to FIFO
+  if (DMP_OUTPUT_GYRO) {
+    tx_buffer[0] = 0xC4;
+    tx_buffer[1] = 0xCC;
+    tx_buffer[2] = 0xC6;
+    MPU6050AccessDMPMemory(2730, tx_buffer, 3, WRITE);
+    if (!DMP_CALIBRATED_GYRO_OUTPUT) {
+      // tx_buffer[0] = 0xAA;
+      // tx_buffer[1] = 0xAA;
+      // tx_buffer[2] = 0xB0;
+      // tx_buffer[3] = 0x88;
+      // tx_buffer[4] = 0xC3;
+      // tx_buffer[5] = 0xC5;
+      // tx_buffer[6] = 0xC7;
+      // MPU6050AccessDMPMemory(1210, tx_buffer, 7, WRITE);
+      tx_buffer[0] = 0xC0;
+      tx_buffer[1] = 0x80;
+      tx_buffer[2] = 0xC2;
+      tx_buffer[3] = 0x90;
+      MPU6050AccessDMPMemory(2722, tx_buffer, 4, WRITE);
+    }
+  }
+
+  // Enable Quaternion and gyro calibration features
   tx_buffer[0] = 0x20;
   tx_buffer[1] = 0x28;
   tx_buffer[2] = 0x30;
@@ -215,18 +316,35 @@ void DMPInit(void)
 enum MPU6050Error DMPReadFIFO(void)
 {
   uint8_t remaining = 1;
-  uint8_t rx_buffer[sizeof(_dmp_quaternion)];
+  uint8_t rx_buffer[DMP_FIFO_DATA_SIZE];
   enum MPU6050Error error = MPU6050_ERROR_NONE;
 
   // TODO: Make this non-blocking
   while (remaining) {
-    error = MPU6050ReadFromFIFO(rx_buffer, sizeof(_dmp_quaternion), &remaining);
+    error = MPU6050ReadFromFIFO(rx_buffer, DMP_FIFO_DATA_SIZE, &remaining);
     I2CWaitUntilCompletion();
   }
 
   for (uint8_t i = 0; i < 4; i++) {
     _dmp_quaternion[i] = (float)BigEndianArrayToS32(rx_buffer + i *
       sizeof(int32_t)) / (float)DMP_QUATERNION_FIXED_POINT;
+  }
+  // Mark previously computed Euler angles as invalid.
+  _dmp_euler_angles = DMP_EULER_ANGLES_CLEAR;
+
+  if (DMP_OUTPUT_ACCELEROMETER) {
+    for (uint8_t i = 0; i < 3; i++) {
+      _dmp_acclerometer[i] = BigEndianArrayToS16(rx_buffer + 4 * sizeof(int32_t)
+        + i * sizeof(int16_t));
+    }
+  }
+
+  if (DMP_OUTPUT_GYRO) {
+    uint8_t temp = (DMP_OUTPUT_ACCELEROMETER) ? 3 * sizeof(int16_t) : 0;
+    for (uint8_t i = 0; i < 3; i++) {
+      _dmp_gyro[i] = BigEndianArrayToS16(rx_buffer + 4 * sizeof(int32_t)
+        + temp + i * sizeof(int16_t));
+    }
   }
 
   return error;
