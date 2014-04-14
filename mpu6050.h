@@ -3,10 +3,17 @@
 
 #include <inttypes.h>
 
+#define MPU6050_X_AXIS                   (0)
+#define MPU6050_Y_AXIS                   (1)
+#define MPU6050_Z_AXIS                   (2)
+
 //TODO: Move these defines to mpu6050.c
 #define MPU6050_ADDRESS_AD0_LOW  (0x68 << 1) // address pin low (GND)
 #define MPU6050_ADDRESS_AD0_HIGH (0x69 << 1) // address pin high (VCC)
 #define MPU6050_DEFAULT_ADDRESS  MPU6050_ADDRESS_AD0_LOW
+
+#define MPU6050_RA_XA_OFFSET_H        (0x06)
+#define MPU6050_RA_XG_OFFSET_H        (0x13)
 
 #define MPU6050_RA_SMPRT_DIV          (0x19)
 #define MPU6050_RA_CONFIG             (0x1A)
@@ -74,5 +81,8 @@ void MPU6050Init(void);
 enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_length, uint8_t *remaining);
 void MPU6050ReadRaw(volatile uint8_t *rx_destination_ptr);
+
+void MPU6050SetAccelerometerBias(uint8_t axis, int16_t bias);
+void MPU6050SetGyroBias(uint8_t axis, int16_t bias);
 
 #endif //MPU6050_H

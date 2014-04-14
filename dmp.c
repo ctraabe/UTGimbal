@@ -12,7 +12,7 @@
 // Set the following to 1 or 0 to enable/disable
 #define DMP_OUTPUT_ACCELEROMETER   (1)
 #define DMP_OUTPUT_GYRO            (1)
-#define DMP_CALIBRATED_GYRO_OUTPUT (1)
+#define DMP_CALIBRATED_GYRO_OUTPUT (0)
 
 #define DMP_BANK_SIZE (256)
 #define DMP_FIFO_DATA_SIZE (28)
@@ -230,7 +230,7 @@ void DMPInit(void)
   // Set orientation
   tx_buffer[0] = 0x4C;
   tx_buffer[1] = 0xCD;
-  tx_buffer[2] = 0xc5;
+  tx_buffer[2] = 0x6C;
   MPU6050AccessDMPMemory(1062, tx_buffer, 3, WRITE);
 
   // Don't send gesture data to FIFO
@@ -252,17 +252,19 @@ void DMPInit(void)
     tx_buffer[2] = 0xC6;
     MPU6050AccessDMPMemory(2730, tx_buffer, 3, WRITE);
     if (!DMP_CALIBRATED_GYRO_OUTPUT) {
-      // tx_buffer[0] = 0xAA;
-      // tx_buffer[1] = 0xAA;
-      // tx_buffer[2] = 0xB0;
-      // tx_buffer[3] = 0x88;
-      // tx_buffer[4] = 0xC3;
-      // tx_buffer[5] = 0xC5;
-      // tx_buffer[6] = 0xC7;
-      // MPU6050AccessDMPMemory(1210, tx_buffer, 7, WRITE);
-      tx_buffer[0] = 0xC0;
+      tx_buffer[0] = 0xB8;
+      tx_buffer[1] = 0xAA;
+      tx_buffer[2] = 0xAA;
+      tx_buffer[3] = 0xAA;
+      tx_buffer[4] = 0xB0;
+      tx_buffer[5] = 0x88;
+      tx_buffer[6] = 0xC3;
+      tx_buffer[7] = 0xC5;
+      tx_buffer[8] = 0xC7;
+      MPU6050AccessDMPMemory(1208, tx_buffer, 9, WRITE);
+      tx_buffer[0] = 0xB0;
       tx_buffer[1] = 0x80;
-      tx_buffer[2] = 0xC2;
+      tx_buffer[2] = 0xB4;
       tx_buffer[3] = 0x90;
       MPU6050AccessDMPMemory(2722, tx_buffer, 4, WRITE);
     }
@@ -311,6 +313,14 @@ void DMPInit(void)
   I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_INT_ENABLE,
     tx_buffer, 1);
   I2CWaitUntilCompletion();
+
+  // Set the biases (specific to each chip)
+  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
+  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
+  MPU6050SetGyroBias(MPU6050_X_AXIS, -43);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
+  MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
 }
 
 enum MPU6050Error DMPReadFIFO(void)

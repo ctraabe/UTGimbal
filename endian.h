@@ -4,6 +4,18 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+static inline uint8_t* BigEndianArrayFromS16(int16_t word)
+{
+  // Reinterpret the word as an array of bytes.
+  uint8_t *byte_array = (uint8_t *)&word;
+  // Reorder the bytes.
+  uint8_t *ret = (uint8_t *)malloc(sizeof(word));
+  ret[0] = byte_array[1];
+  ret[1] = byte_array[0];
+  return ret;
+}
+
+// -----------------------------------------------------------------------------
 static inline uint8_t* BigEndianArrayFromU16(uint16_t word)
 {
   // Reinterpret the word as an array of bytes.

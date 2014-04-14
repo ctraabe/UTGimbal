@@ -93,3 +93,34 @@ void MPU6050ReadRaw(volatile uint8_t *rx_destination_ptr)
   I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_ACCEL_XOUT_H,
     rx_destination_ptr, sizeof(struct str_MPU6050Data));
 }
+
+// -----------------------------------------------------------------------------
+void MPU6050SetAccelerometerBias(uint8_t axis, int16_t bias)
+{
+  // The last bit of the 2nd byte of each accelerometer offset is reserved for
+  // temperature compensation and must be preserved.
+  uint8_t temperature_bit;
+  I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_XA_OFFSET_H
+    + (axis << 1) + 1, &temperature_bit, 1);
+  I2CWaitUntilCompletion();
+
+  // Prepare the tx buffer (multiplying by 2 makes a zero in the LSB).
+  uint8_t *tx_buffer = BigEndianArrayFromS16(bias * 2);
+  tx_buffer[1] |= temperature_bit & 0x01;
+
+  // Send the tx buffer.
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_XA_OFFSET_H
+    + (axis * 2), tx_buffer, 2);
+  I2CWaitUntilCompletion();
+  free(tx_buffer);
+}
+
+// -----------------------------------------------------------------------------
+void MPU6050SetGyroBias(uint8_t axis, int16_t bias)
+{
+  uint8_t *tx_buffer = BigEndianArrayFromS16(bias);
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_XG_OFFSET_H
+    + (axis * 2), tx_buffer, 2);
+  I2CWaitUntilCompletion();
+  free(tx_buffer);
+}
