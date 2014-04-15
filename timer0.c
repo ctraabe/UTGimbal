@@ -14,18 +14,6 @@ static volatile uint8_t _timestamp = 0;
 // =============================================================================
 // Public functions:
 
-// Initialize Timer0 to produce an interrupt at 125Hz
-void Timer0Init(void)
-{
-  TCCR0A = _BV(WGM01);  // Set "Clear Timer on Compare" mode
-  TCCR0B = _BV(CS02) | _BV(CS00);  // Set prescaler to 1/1024
-  TCNT0 = 0;  // Clear the timer
-  // Set compare to occur at 125 Hz
-  OCR0A = (uint8_t)(F_CPU / 1024 / 125) - 1;
-  TIMSK0 = _BV(OCIE0A);  // Enable "Output Compare Match A" interrupt
-}
-
-// -----------------------------------------------------------------------------
 // Returns TRUE if an interrupt from Timer0 has occurred since the last time
 // this function returned TRUE.
 bool Timer0Tick(void)
@@ -54,10 +42,14 @@ void Timer0Delay(uint16_t ms)
 // =============================================================================
 // Private functions:
 
-// This interrupt occurs when the counter matched the value in OCR0A, which
-// should have been set in the initialization function.
-ISR(TIMER0_COMPA_vect)
+// This interrupt occurs when Timer0 reaches BOTOM, which occurs at 31.25 kHz. A
+// sub-counter is used to reduce the ticks to 31250 Hz / 250 = 125Hz (0.008 s).
+ISR(TIMER0_OVF_vect)
 {
-  _tick = TRUE;
-  ++_timestamp;
+  static uint8_t subcounter = 250;
+  if (!--subcounter) {
+    subcounter = 250;
+    _tick = TRUE;
+    ++_timestamp;
+  }
 }

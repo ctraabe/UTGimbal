@@ -8,6 +8,7 @@
 #include "endian.h"
 #include "i2c.h"
 #include "mag3110.h"
+#include "motors.h"
 #include "mpu6050.h"
 #include "print.h"
 #include "timer0.h"
@@ -34,13 +35,13 @@ static void Initialization(void)
 
   I2CInit(I2C_SPEED);
   UARTInit(UART_BAUD);
-  Timer0Init();
 
   sei();  // Enable interrupts
 
   MPU6050Init();
   // MAG3110Init();
   DMPInit();
+  InitMotors();
 }
 
 // -----------------------------------------------------------------------------
