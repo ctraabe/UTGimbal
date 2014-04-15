@@ -56,7 +56,54 @@ int16_t main(void)
 
       static uint8_t uart_tx_buffer[80] = {0};
       uint8_t i = 0;
+/*
+      i += PrintS16((int16_t)(dmp_quaternion(0) * 1000.0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(1) * 1000.0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(2) * 1000.0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16((int16_t)(dmp_quaternion(3) * 1000.0), uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
 
+      i += PrintS16(dmp_accelerometer(0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_accelerometer(1), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_accelerometer(2), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(0), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(1), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(dmp_gyro(2), uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
+
+      static int16_t samples[256] = {0};
+      static uint8_t index = 0;
+      static int32_t sum = 0;
+      static int16_t bias;
+      uint8_t rx_buffer[2] = {0};
+      I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_XA_OFFSET_H
+        + ((2) * 2), rx_buffer, 2);
+      // I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_XG_OFFSET_H
+      //   + ((2) << 1), rx_buffer, 2);
+      I2CWaitUntilCompletion();
+      bias = BigEndianArrayToS16(rx_buffer);
+      i += PrintS16(dmp_accelerometer(2), uart_tx_buffer + i);
+      // i += PrintS16(dmp_gyro(2), uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(S16MovingAverage256(dmp_accelerometer(2), samples, &index,
+        &sum), uart_tx_buffer + i);
+      // i += PrintS16(S16MovingAverage256(dmp_gyro(2), samples, &index, &sum),
+      //   uart_tx_buffer + i);
+      i += PrintSpace(uart_tx_buffer + i);
+      i += PrintS16(bias / 2, uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
+
+      i += PrintU8(error, uart_tx_buffer + i);
+      i += PrintEOL(uart_tx_buffer + i);
+*/
       i += PrintS16((int16_t)(dmp_roll_angle() * R2D), uart_tx_buffer + i);
       i += PrintSpace(uart_tx_buffer + i);
       i += PrintS16((int16_t)(dmp_pitch_angle() * R2D), uart_tx_buffer + i);
@@ -76,7 +123,7 @@ int16_t main(void)
 // interrupt pin on the MPU6050, indicating that data is ready.
 ISR(INT0_vect)
 {
-  PORTB ^= _BV(PORTB5);  // Red LED Heartbeat
+  PORTB ^= _BV(PORTB4);  // Red LED Heartbeat
   _status_MPU6050 = MPU6050_DATA_WAITING;
 }
 

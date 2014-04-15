@@ -9,11 +9,6 @@
 #include "quaternion.h"
 #include "timer0.h"
 
-// Set the following to 1 or 0 to enable/disable
-#define DMP_OUTPUT_ACCELEROMETER   (1)
-#define DMP_OUTPUT_GYRO            (1)
-#define DMP_CALIBRATED_GYRO_OUTPUT (0)
-
 #define DMP_BANK_SIZE (256)
 #define DMP_FIFO_DATA_SIZE (28)
 
@@ -228,10 +223,26 @@ void DMPInit(void)
   DMPLoadFirmware();
 
   // Set orientation
+  // Gyro axes
   tx_buffer[0] = 0x4C;
   tx_buffer[1] = 0xCD;
   tx_buffer[2] = 0x6C;
   MPU6050AccessDMPMemory(1062, tx_buffer, 3, WRITE);
+  // Accelerometer axes
+  tx_buffer[0] = 0x0C;
+  tx_buffer[1] = 0xC9;
+  tx_buffer[2] = 0x2C;
+  MPU6050AccessDMPMemory(1066, tx_buffer, 3, WRITE);
+  // Gyro sign
+  tx_buffer[0] = 0x36 | 0x00;
+  tx_buffer[1] = 0x56 | 0x00;
+  tx_buffer[2] = 0x76 | 0x00;
+  MPU6050AccessDMPMemory(1088, tx_buffer, 3, WRITE);
+  // Accelerometer sign
+  tx_buffer[0] = 0x26 | 0x01;
+  tx_buffer[1] = 0x46 | 0x01;
+  tx_buffer[2] = 0x66 | 0x01;
+  MPU6050AccessDMPMemory(1073, tx_buffer, 3, WRITE);
 
   // Don't send gesture data to FIFO
   tx_buffer[0] = 0xD8;
@@ -315,12 +326,21 @@ void DMPInit(void)
   I2CWaitUntilCompletion();
 
   // Set the biases (specific to each chip)
+#if MPU6050_SPARKFUN
   MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
   MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
   MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
   MPU6050SetGyroBias(MPU6050_X_AXIS, -43);
   MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
   MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
+#else
+  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -665);
+  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 673);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 490);
+  MPU6050SetGyroBias(MPU6050_X_AXIS, 49);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, 0);
+  MPU6050SetGyroBias(MPU6050_Z_AXIS, -10);
+#endif
 }
 
 enum MPU6050Error DMPReadFIFO(void)
