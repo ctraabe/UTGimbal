@@ -5,9 +5,15 @@ CC      = avr-gcc
 CP      = avr-objcopy
 DUDE    = avrdude
 
-MCU     = atmega168
+# MCU     = atmega168
+MCU     = atmega328p
 F_CPU   = 16000000L
-BAUD    = 19200
+
+ifeq ($(MCU),atmega168)
+        BAUD = 19200
+else
+        BAUD = 57600
+endif
 
 LFLAGS  = -std=gnu99 -Ofast -mmcu=$(MCU) -pedantic -Werror -Wall -Wextra \
           -Wstrict-prototypes -Wundef -fshort-enums -ffreestanding -Wl,--relax

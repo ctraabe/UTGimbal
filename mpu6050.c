@@ -29,6 +29,11 @@ void MPU6050Init(void)
 {
   uint8_t tx_buffer[3];
 
+  // Connect the interrupt signal from MPU6050 to pin D2.
+  DDRD &= ~_BV(DDD2);  // Set pin D2 (int0) to input
+  EIMSK |= _BV(INT0);  // Enable the interrupt on pin D2 (int0)
+  EICRA |= _BV(ISC01) | _BV(ISC00);  // Set int0 to trigger on the rising edge
+
   // Turn off MPU6050 sleep enabled bit and set clock to PLL with X gyro ref.
   tx_buffer[0] = _BV(MPU6050_PWR_MGMT_1_CLKSEL0);
   I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1,
