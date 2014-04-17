@@ -14,7 +14,7 @@ const uint8_t sin_table[180] PROGMEM = {
 49,52,56,60,63,67,71,75,79,84,88,92,96,101,105,109,114,118,123
 };
 
-void InitMotors(void) {
+void MotorPWMTimersInit(void) {
   // Clear the output compare registers
   OCR0A = 0;  // OC0A is pin D6
   OCR0B = 0;  // OC0B is pin D5
@@ -37,9 +37,6 @@ void InitMotors(void) {
   TCCR1B = _BV(CS10);
   TCCR2A = _BV(COM2A1) | _BV(COM2B1) | _BV(WGM20);
   TCCR2B = _BV(CS20);
-
-  // Enable the interrupt (TIMER0_OVF) when Timer0 reaches BOTTOM (31.25 Hz).
-  TIMSK0 = _BV(TOIE0);
 }
 
 void MoveMotorTo(uint8_t position) {

@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-void InitMotors(void);
+void MotorPWMTimersInit(void);
 
 void MoveMotorTo(uint8_t position);
 

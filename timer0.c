@@ -14,6 +14,15 @@ static volatile uint8_t _timestamp = 0;
 // =============================================================================
 // Public functions:
 
+// Initialize Timer0 to produce an interrupt at 31.25 kHz (depends on Timer0
+// settings for PWM in motors.h)
+void Timer0Init(void)
+{
+  // Enable the interrupt (TIMER0_OVF) when Timer0 reaches BOTTOM (31.25 Hz).
+  TIMSK0 = _BV(TOIE0);
+}
+
+// -----------------------------------------------------------------------------
 // Returns TRUE if an interrupt from Timer0 has occurred since the last time
 // this function returned TRUE.
 bool Timer0Tick(void)

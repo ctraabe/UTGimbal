@@ -35,13 +35,15 @@ static void Initialization(void)
 
   I2CInit(I2C_SPEED);
   UARTInit(UART_BAUD);
+  MotorPWMTimersInit();
+  Timer0Init();  // Depends on Timer0 settings from MotorPWMTimersInit().
 
   sei();  // Enable interrupts
 
   MPU6050Init();
   // MAG3110Init();
   DMPInit();
-  InitMotors();
+  PORTB &= ~_BV(PORTB4);
 }
 
 // -----------------------------------------------------------------------------
