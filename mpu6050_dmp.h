@@ -12,15 +12,20 @@
 #define DMP_OUTPUT_ACCELEROMETER   (1)
 #define DMP_OUTPUT_GYRO            (1)
 #define DMP_CALIBRATED_GYRO_OUTPUT (0)
+#define DMP_AUTO_CALIBRATE_GYRO    (0)
 
+// Accessors:
 float dmp_quaternion(uint8_t index);
 int16_t dmp_accelerometer(uint8_t index);
 int16_t dmp_gyro(uint8_t index);
+
+// Pseudo-accessors:
 float dmp_roll_angle(void);
 float dmp_pitch_angle(void);
 float dmp_yaw_angle(void);
 
-void DMPInit(void);
+// Public functions:
+void MPU6050DMPInit(void);
 enum MPU6050Error DMPReadFIFO(void);
 
 #endif //DMP_H

@@ -80,7 +80,6 @@ void MPU6050Init(void);
 
 enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_length, uint8_t *remaining);
-void MPU6050ReadRaw(volatile uint8_t *rx_destination_ptr);
 
 void MPU6050SetAccelerometerBias(uint8_t axis, int16_t bias);
 void MPU6050SetGyroBias(uint8_t axis, int16_t bias);

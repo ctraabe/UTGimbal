@@ -3,23 +3,9 @@
 #include <stdlib.h>
 #include <avr/io.h>
 
-#include "endian.h"
 #include "i2c.h"
-
-
-// =============================================================================
-// Private data:
-
-struct str_MPU6050Data
-{
-  int16_t x_accelerometer;
-  int16_t y_accelerometer;
-  int16_t z_accelerometer;
-  int16_t temperature;
-  int16_t x_gyro;
-  int16_t y_gyro;
-  int16_t z_gyro;
-};
+#include "endian.h"
+#include "timer0.h"
 
 
 // =============================================================================
@@ -27,41 +13,25 @@ struct str_MPU6050Data
 
 void MPU6050Init(void)
 {
-  // uint8_t tx_buffer[3];
+  uint8_t tx_buffer;
 
   // Connect the interrupt signal from MPU6050 to pin D2.
   DDRD &= ~_BV(DDD2);  // Set pin D2 (int0) to input
   EIMSK |= _BV(INT0);  // Enable the interrupt on pin D2 (int0)
   EICRA |= _BV(ISC01) | _BV(ISC00);  // Set int0 to trigger on the rising edge
-/*
-  // Turn off MPU6050 sleep enabled bit and set clock to PLL with X gyro ref.
-  tx_buffer[0] = _BV(MPU6050_PWR_MGMT_1_CLKSEL0);
+
+  // Reset the MPU6050
+  tx_buffer = _BV(MPU6050_PWR_MGMT_1_DEVICE_RESET);
   I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1,
-    tx_buffer, 1);
+    &tx_buffer, 1);
   I2CWaitUntilCompletion();
+  Timer0Delay(100);
 
-  // Turn on the 185Hz low-pass filter for the gyro and accelerometers, then
-  // set the gyro and accelerometer range (consecutive destinations).
-  tx_buffer[0] = _BV(MPU6050_CONFIG_DLPF_CFG0);
-  // tx_buffer[1] = 0;  // 250 deg/s
-  tx_buffer[1] = _BV(MPU6050_GYRO_CONFIG_FS_SEL0);  // 500 deg/s
-  // tx_buffer[1] = _BV(MPU6050_GYRO_CONFIG_FS_SEL1);  // 1000 deg/s
-  // tx_buffer[2] = 0;  // 2 g
-  tx_buffer[2] = _BV(MPU6050_ACCEL_CONFIG_AFS_SEL0);  // 4 g
-  // tx_buffer[2] = _BV(MPU6050_ACCEL_CONFIG_AFS_SEL1);  // 8 g
-  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_CONFIG,
-    tx_buffer, 3);
+  // Turn off MPU6050 sleep enabled bit and set clock to PLL with X gyro ref.
+  tx_buffer = _BV(MPU6050_PWR_MGMT_1_CLKSEL0);
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_PWR_MGMT_1,
+    &tx_buffer, 1);
   I2CWaitUntilCompletion();
-
-  // Set the interrupt signal to latch high and clear on any read, then
-  // enable the interrupt on new data ready (consecutive destinations).
-  tx_buffer[0] = _BV(MPU6050_INT_PIN_CFG_LATCH_INT_EN)
-    | _BV(MPU6050_INT_PIN_CFG_INT_RD_CLEAR);
-  tx_buffer[1] = _BV(MPU6050_INT_ENABLE_DATA_RDY_EN);
-  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_INT_PIN_CFG,
-    tx_buffer, 2);
-  I2CWaitUntilCompletion();
-*/
 }
 
 // -----------------------------------------------------------------------------
@@ -91,13 +61,6 @@ enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
 
   *remaining = fifo_data_length / rx_destination_length - 1;
   return MPU6050_ERROR_NONE;
-}
-
-// -----------------------------------------------------------------------------
-void MPU6050ReadRaw(volatile uint8_t *rx_destination_ptr)
-{
-  I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_ACCEL_XOUT_H,
-    rx_destination_ptr, sizeof(struct str_MPU6050Data));
 }
 
 // -----------------------------------------------------------------------------

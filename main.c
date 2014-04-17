@@ -4,12 +4,10 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-#include "dmp.h"
 #include "endian.h"
 #include "i2c.h"
-#include "mag3110.h"
 #include "motors.h"
-#include "mpu6050.h"
+#include "mpu6050_dmp.h"
 #include "print.h"
 #include "timer0.h"
 #include "uart.h"
@@ -32,6 +30,7 @@ static volatile enum MPU6050Mode _status_MPU6050 = MPU6050_DATA_WAITING;
 static void Initialization(void)
 {
   DDRB |= _BV(DDB4);  // Set pin B4 to output (attached to red LED).
+  DDRC |= _BV(DDC1);  // Set pin C1 to output (attached to green LED).
 
   I2CInit(I2C_SPEED);
   UARTInit(UART_BAUD);
@@ -40,10 +39,8 @@ static void Initialization(void)
 
   sei();  // Enable interrupts
 
-  MPU6050Init();
+  MPU6050DMPInit();
   // MAG3110Init();
-  DMPInit();
-  PORTB &= ~_BV(PORTB4);
 }
 
 // -----------------------------------------------------------------------------
@@ -56,6 +53,7 @@ int16_t main(void)
     if (_status_MPU6050 == MPU6050_DATA_WAITING) {
       // enum MPU6050Error error = DMPReadFIFO();
       DMPReadFIFO();
+      PORTC ^= _BV(PORTC1);  // Green LED Heartbeat
 
       static uint8_t uart_tx_buffer[80] = {0};
       uint8_t i = 0;
