@@ -12,11 +12,9 @@
 // Private data:
 
 #define DMP_BANK_SIZE (256)
-#define DMP_FIFO_DATA_SIZE (28)
-
-// #define DMP_FIFO_DATA_SIZE (4 * sizeof(int32_t)
-//   + DMP_OUTPUT_ACCELEROMETER * 3 * sizeof(int16_t)
-//   + DMP_OUTPUT_GYRO * 3 * sizeof(int16_t))
+#define DMP_FIFO_DATA_SIZE (4 * sizeof(int32_t)\
+  + DMP_OUTPUT_ACCELEROMETER * 3 * sizeof(int16_t)\
+  + DMP_OUTPUT_GYRO * 3 * sizeof(int16_t))
 
 // Quaternion from InvenSense's MotionDriver v5.1 are composed of an array of
 // 32-bit fixed-point signed integers in Q1.30 form (i.e. 1L<<30 = 1.0f).
@@ -124,28 +122,6 @@ void MPU6050DMPInit(void)
   // Load DMP firmware
   DMPLoadFirmware();
 
-  // Set orientation
-  // Gyro axes (FCFG_1)
-  tx_buffer[0] = 0x4C;
-  tx_buffer[1] = 0xCD;
-  tx_buffer[2] = 0x6C;
-  MPU6050AccessDMPMemory(1062, tx_buffer, 3, WRITE);
-  // Accelerometer axes (FCFG_2)
-  tx_buffer[0] = 0x0C;
-  tx_buffer[1] = 0xC9;
-  tx_buffer[2] = 0x2C;
-  MPU6050AccessDMPMemory(1066, tx_buffer, 3, WRITE);
-  // Gyro sign (FCFG_3)
-  tx_buffer[0] = 0x36 | 0x00;
-  tx_buffer[1] = 0x56 | 0x00;
-  tx_buffer[2] = 0x76 | 0x00;
-  MPU6050AccessDMPMemory(1088, tx_buffer, 3, WRITE);
-  // Accelerometer sign (FCFG_7)
-  tx_buffer[0] = 0x26 | 0x01;
-  tx_buffer[1] = 0x46 | 0x01;
-  tx_buffer[2] = 0x66 | 0x01;
-  MPU6050AccessDMPMemory(1073, tx_buffer, 3, WRITE);
-
   // Enable accelerometer output to FIFO (CFG_15 + 1)
   if (DMP_OUTPUT_ACCELEROMETER) {
     tx_buffer[0] = 0xC0;
@@ -215,7 +191,7 @@ void MPU6050DMPInit(void)
 #else
   MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -665);
   MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 673);
-  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 490);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 465);
   MPU6050SetGyroBias(MPU6050_X_AXIS, 49);
   MPU6050SetGyroBias(MPU6050_Y_AXIS, 0);
   MPU6050SetGyroBias(MPU6050_Z_AXIS, -10);

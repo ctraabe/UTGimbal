@@ -13,12 +13,12 @@
 
 void MPU6050Init(void)
 {
-  uint8_t tx_buffer;
-
   // Connect the interrupt signal from MPU6050 to pin D2.
   DDRD &= ~_BV(DDD2);  // Set pin D2 (int0) to input
   EIMSK |= _BV(INT0);  // Enable the interrupt on pin D2 (int0)
   EICRA |= _BV(ISC01) | _BV(ISC00);  // Set int0 to trigger on the rising edge
+
+  uint8_t tx_buffer;
 
   // Reset the MPU6050
   tx_buffer = _BV(MPU6050_PWR_MGMT_1_DEVICE_RESET);
@@ -38,15 +38,14 @@ void MPU6050Init(void)
 enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_length, uint8_t *remaining)
 {
-  uint16_t fifo_data_length;
-
   // Get the number of bytes currently in the FIFO
   // TODO: Make this non-blocking
   uint8_t *rx_buffer = (uint8_t *)malloc(sizeof(uint16_t));
   I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_COUNT_H,
     rx_buffer, sizeof(uint16_t));
   I2CWaitUntilCompletion();
-  fifo_data_length = BigEndianArrayToU16(rx_buffer);
+
+  uint16_t fifo_data_length = BigEndianArrayToU16(rx_buffer);
   free(rx_buffer);
 
   if (fifo_data_length < rx_destination_length) {
