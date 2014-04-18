@@ -8,6 +8,7 @@
 #include "quaternion.h"
 #include "timer0.h"
 
+
 // =============================================================================
 // Private data:
 
@@ -47,6 +48,7 @@ int8_t DMPLoadFirmware(void);
 
 // =============================================================================
 // Accessors
+
 float dmp_quaternion(uint8_t index)
 {
   return _dmp_quaternion[index];
@@ -67,7 +69,7 @@ int16_t dmp_gyro(uint8_t index)
 // Computation of these quantities is expensive and therefore are only performed
 // if necessary and are stored so that they may be accessed again without
 // re-invoking the expensive floating-point operations.
-float dmp_roll_angle(void)
+float dmp_roll_angle(void)  // rad
 {
   if (!(_dmp_euler_angles & DMP_EULER_ANGLES_ROLL)) {
     _dmp_roll_angle = RollAngleFromQuaternion(_dmp_quaternion, q0_squared());
@@ -75,7 +77,7 @@ float dmp_roll_angle(void)
   }
   return _dmp_roll_angle;
 }
-float dmp_pitch_angle(void)
+float dmp_pitch_angle(void)  // rad
 {
   if (!(_dmp_euler_angles & DMP_EULER_ANGLES_PITCH)) {
     _dmp_pitch_angle = PitchAngleFromQuaternion(_dmp_quaternion);
@@ -83,7 +85,7 @@ float dmp_pitch_angle(void)
   }
   return _dmp_pitch_angle;
 }
-float dmp_yaw_angle(void)
+float dmp_yaw_angle(void)  // rad
 {
   if (!(_dmp_euler_angles & DMP_EULER_ANGLES_YAW)) {
     _dmp_yaw_angle = YawAngleFromQuaternion(_dmp_quaternion, q0_squared());

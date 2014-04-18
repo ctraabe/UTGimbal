@@ -1,7 +1,12 @@
 #include "motors.h"
 
+#include <math.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+
+
+// =============================================================================
+// Private data:
 
 const uint8_t sin_table[180] PROGMEM = {
 127,131,136,140,145,149,153,158,162,166,170,175,179,183,187,191,194,198,202,205,
@@ -13,6 +18,16 @@ const uint8_t sin_table[180] PROGMEM = {
 3,2,1,1,0,0,0,0,0,1,1,2,3,4,5,6,8,9,11,13,15,17,19,22,24,27,30,33,36,39,42,45,
 49,52,56,60,63,67,71,75,79,84,88,92,96,101,105,109,114,118,123
 };
+
+
+// =============================================================================
+// Private function declarations:
+
+void MoveToPosition(enum Motors motor, uint8_t position);
+
+
+// =============================================================================
+// Public functions:
 
 void MotorPWMTimersInit(void) {
   // Clear the output compare registers
@@ -39,16 +54,38 @@ void MotorPWMTimersInit(void) {
   TCCR2B = _BV(CS20);
 }
 
-void MoveMotorTo(uint8_t position) {
-  OCR1A = pgm_read_byte(&(sin_table[position]));
+void MotorMoveToAngle(enum Motors motor, float angle)
+{
+  int16_t position = (int16_t)(angle * 1260.0 / 2.0 / M_PI + 0.5);
+  while (position < 0) position += 180;
+  while (position >= 180) position -= 180;
+  MoveToPosition(motor, (uint8_t)position);
+}
+
+
+// =============================================================================
+// Private functions:
+
+void MoveToPosition(enum Motors motor, uint8_t position) {
+  uint8_t stators[3];
+  stators[0] = pgm_read_byte(&(sin_table[position]));
   if (position < 120)
     position += 60;
   else
     position -= 120;
-  OCR1B = pgm_read_byte(&(sin_table[position]));
+  stators[1] = pgm_read_byte(&(sin_table[position]));
   if (position < 120)
     position += 60;
   else
     position -= 120;
-  OCR2A = pgm_read_byte(&(sin_table[position]));
+  stators[2] = pgm_read_byte(&(sin_table[position]));
+  if (motor == MOTOR_ROLL) {
+    OCR1A = stators[0];
+    OCR1B = stators[1];
+    OCR2A = stators[2];
+  } else if (motor == MOTOR_PITCH) {
+    OCR2B = stators[0];
+    OCR0B = stators[1];
+    OCR0A = stators[2];
+  }
 }

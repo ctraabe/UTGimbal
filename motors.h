@@ -3,8 +3,14 @@
 
 #include <inttypes.h>
 
+enum Motors {
+  MOTOR_ROLL,
+  MOTOR_PITCH,
+  MOTOR_YAW,
+};
+
 void MotorPWMTimersInit(void);
 
-void MoveMotorTo(uint8_t position);
+void MotorMoveToAngle(enum Motors motor, float angle);
 
 #endif //_MOTORS_H

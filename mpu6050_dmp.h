@@ -20,9 +20,9 @@ int16_t dmp_accelerometer(uint8_t index);
 int16_t dmp_gyro(uint8_t index);
 
 // Pseudo-accessors:
-float dmp_roll_angle(void);
-float dmp_pitch_angle(void);
-float dmp_yaw_angle(void);
+float dmp_roll_angle(void);  // rad
+float dmp_pitch_angle(void);  // rad
+float dmp_yaw_angle(void);  // rad
 
 // Public functions:
 void MPU6050DMPInit(void);
