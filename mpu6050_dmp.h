@@ -5,6 +5,9 @@
 
 #include "mpu6050.h"
 
+#define DMP_SAMPLE_RATE (200)
+#define DMP_SAMPLE_TIME (1.0 / (float)DMP_SAMPLE_RATE)
+
 // Sparkfun breakout or other
 #define MPU6050_SPARKFUN (0)
 

@@ -1,6 +1,5 @@
 #include "motors.h"
 
-#include <math.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
@@ -8,7 +7,7 @@
 // =============================================================================
 // Private data:
 
-const uint8_t sin_table[180] PROGMEM = {
+const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
 127,131,136,140,145,149,153,158,162,166,170,175,179,183,187,191,194,198,202,205,
 209,212,215,218,221,224,227,230,232,235,237,239,241,243,245,246,248,249,250,251,
 252,253,253,254,254,254,254,254,253,253,252,251,250,249,248,246,245,243,241,239,
@@ -23,6 +22,7 @@ const uint8_t sin_table[180] PROGMEM = {
 // =============================================================================
 // Private function declarations:
 
+static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit);
 void MoveToPosition(enum Motors motor, uint8_t position);
 
 
@@ -54,30 +54,44 @@ void MotorPWMTimersInit(void) {
   TCCR2B = _BV(CS20);
 }
 
+void MotorMove(enum Motors motor, int8_t segments)
+{
+  static uint8_t position[NUMBER_OF_MOTORS] = {0};
+  int16_t temp = position[motor] + segments;
+  position[motor] = Wrap0ToLimit(temp, SINE_TABLE_LENGTH);
+  MoveToPosition(motor, position[motor]);
+}
+
 void MotorMoveToAngle(enum Motors motor, float angle)
 {
-  int16_t position = (int16_t)(angle * 1260.0 / 2.0 / M_PI + 0.5);
-  while (position < 0) position += 180;
-  while (position >= 180) position -= 180;
-  MoveToPosition(motor, (uint8_t)position);
+  int16_t position = (int16_t)(angle * (float)(ROTOR_POLES * SINE_TABLE_LENGTH)
+    / 2.0 / M_PI + 0.5);
+  MoveToPosition(motor, Wrap0ToLimit(position, SINE_TABLE_LENGTH));
 }
 
 
 // =============================================================================
 // Private functions:
 
+static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit)
+{
+  while (input < 0) input += limit;
+  while (input >= limit) input -= limit;
+  return (int8_t)input;
+}
+
 void MoveToPosition(enum Motors motor, uint8_t position) {
   uint8_t stators[3];
   stators[0] = pgm_read_byte(&(sin_table[position]));
-  if (position < 120)
-    position += 60;
+  if (position < (SINE_TABLE_LENGTH * 2 / 3))
+    position += (SINE_TABLE_LENGTH / 3);
   else
-    position -= 120;
+    position -= (SINE_TABLE_LENGTH * 2 / 3);
   stators[1] = pgm_read_byte(&(sin_table[position]));
-  if (position < 120)
-    position += 60;
+  if (position < (SINE_TABLE_LENGTH * 2 / 3))
+    position += (SINE_TABLE_LENGTH / 3);
   else
-    position -= 120;
+    position -= (SINE_TABLE_LENGTH * 2 / 3);
   stators[2] = pgm_read_byte(&(sin_table[position]));
   if (motor == MOTOR_ROLL) {
     OCR1A = stators[0];

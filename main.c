@@ -51,7 +51,16 @@ int16_t main(void)
       DMPReadFIFO();
       PORTC ^= _BV(PORTC1);  // Green LED Heartbeat
 
-      MotorMoveToAngle(MOTOR_ROLL, dmp_roll_angle());
+      // Pitch control law
+      float pitch_p_command = dmp_pitch_angle() * P_GAIN
+        * RADIANS_TO_MOTOR_SEGMENTS;
+
+      // Roll control law
+      float roll_p_command = dmp_roll_angle() * P_GAIN
+        * RADIANS_TO_MOTOR_SEGMENTS;
+
+      MotorMove(MOTOR_ROLL, (int8_t)roll_p_command + (int8_t)pitch_p_command);
+      MotorMove(MOTOR_PITCH, -(int8_t)pitch_p_command);
 
       _status_MPU6050 = MPU6050_IDLE;
     }
