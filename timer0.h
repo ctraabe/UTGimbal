@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-#include"boolean.h"
+#include "boolean.h"
 
 void Timer0Init(void);
 bool Timer0Tick(void);

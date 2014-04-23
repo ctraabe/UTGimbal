@@ -41,8 +41,9 @@ enum MPU6050Error MPU6050ReadFromFIFO(volatile uint8_t *rx_destination_ptr,
   // Get the number of bytes currently in the FIFO
   // TODO: Make this non-blocking
   uint8_t *rx_buffer = (uint8_t *)malloc(sizeof(uint16_t));
-  I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_COUNT_H,
-    rx_buffer, sizeof(uint16_t));
+  if (I2CRxBytesFromRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_COUNT_H,
+      rx_buffer, sizeof(uint16_t)) != I2C_ERROR_NONE)
+    return MPU6050_ERROR_I2C_BUSY;
   I2CWaitUntilCompletion();
 
   uint16_t fifo_data_length = BigEndianArrayToU16(rx_buffer);

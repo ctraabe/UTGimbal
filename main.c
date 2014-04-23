@@ -3,6 +3,7 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
+#include "battery.h"
 #include "endian.h"
 #include "i2c.h"
 #include "motors.h"
@@ -36,6 +37,11 @@ static void Initialization(void)
 
   sei();  // Enable interrupts
 
+  Timer0Delay(100);
+  BatteryMeasureVoltage();
+  Timer0Delay(100);
+  BatteryMeasurementInit();
+
   MPU6050DMPInit();
   // MAG3110Init();
 }
@@ -49,7 +55,6 @@ int16_t main(void)
   for (;;) {  // Preferred over while(1)
     if (_status_MPU6050 == MPU6050_DATA_WAITING) {
       DMPReadFIFO();
-      PORTC ^= _BV(PORTC1);  // Green LED Heartbeat
 
       // Pitch control law
       float pitch_p_command = dmp_pitch_angle() * P_GAIN
@@ -64,6 +69,21 @@ int16_t main(void)
 
       _status_MPU6050 = MPU6050_IDLE;
     }
+
+    if (Timer0Tick()) {
+      // if (I2CInactivtyCounter() > 1)
+      //   I2CReset();
+      static uint8_t seconds_counter = 1;
+      if (!--seconds_counter) {
+        seconds_counter = 125;
+        PORTC ^= _BV(PORTC1);  // Green LED Heartbeat
+        if (BatteryIsLow())
+          PORTB ^= _BV(PORTB4);  // Toggle red LED
+        else
+          PORTB &= ~_BV(PORTB4);  // Turn off red LED
+      }
+      BatteryMeasureVoltage();
+    }
   }
 }
 
@@ -72,7 +92,6 @@ int16_t main(void)
 // interrupt pin on the MPU6050, indicating that data is ready.
 ISR(INT0_vect)
 {
-  PORTB ^= _BV(PORTB4);  // Red LED Heartbeat
   _status_MPU6050 = MPU6050_DATA_WAITING;
 }
 

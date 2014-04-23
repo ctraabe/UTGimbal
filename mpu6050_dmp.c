@@ -210,6 +210,8 @@ enum MPU6050Error DMPReadFIFO(void)
   // TODO: Make this non-blocking
   while (remaining) {
     error = MPU6050ReadFromFIFO(rx_buffer, DMP_FIFO_DATA_SIZE, &remaining);
+    if (error != MPU6050_ERROR_NONE)
+      return error;
     I2CWaitUntilCompletion();
   }
 
@@ -235,7 +237,7 @@ enum MPU6050Error DMPReadFIFO(void)
     }
   }
 
-  return error;
+  return MPU6050_ERROR_NONE;
 }
 
 

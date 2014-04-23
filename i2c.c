@@ -21,6 +21,7 @@ static volatile enum I2CError _i2c_error = I2C_ERROR_NONE;
 static volatile enum I2CMode _i2c_mode = I2C_MODE_IDLE;
 static volatile uint8_t _rx_destination_len = 0, *_rx_destination_ptr = 0;
 static volatile uint8_t _tx_source_len = 0, *_tx_source_ptr = 0;
+static volatile uint8_t _i2c_inactivity_counter = 0;
 static volatile bool _register_address_specified = FALSE;
 
 static uint8_t _register_address = 0x00, _slave_address = 0x00;
@@ -68,51 +69,69 @@ uint8_t I2CIsIdle(void)
 }
 
 // -----------------------------------------------------------------------------
-void I2CRxBytes(uint8_t slave_address, volatile uint8_t *rx_destination_ptr,
-  uint8_t rx_destination_len)
+uint8_t I2CInactivtyCounter(void)
 {
+  if (_i2c_mode != I2C_MODE_IDLE)
+    ++_i2c_inactivity_counter;
+  return _i2c_inactivity_counter;
+}
+
+
+// -----------------------------------------------------------------------------
+enum I2CError I2CRxBytes(uint8_t slave_address,
+  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+{
+  if (_i2c_mode != I2C_MODE_IDLE)
+    return I2C_ERROR_BUSY;
   _slave_address = slave_address;
   _rx_destination_ptr = rx_destination_ptr;
   _rx_destination_len = rx_destination_len;
   _i2c_error = I2C_ERROR_NONE;
   I2CStart(I2C_MODE_RX);
+  return I2C_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------
-void I2CRxBytesFromRegister(uint8_t slave_address, uint8_t register_address,
-  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+enum I2CError I2CRxBytesFromRegister(uint8_t slave_address,
+  uint8_t register_address, volatile uint8_t *rx_destination_ptr,
+  uint8_t rx_destination_len)
 {
   _register_address = register_address;
   _register_address_specified = TRUE;
-  I2CTxThenRxBytes(slave_address, 0, 0, rx_destination_ptr,
+  return I2CTxThenRxBytes(slave_address, 0, 0, rx_destination_ptr,
     rx_destination_len);
 }
 
 // -----------------------------------------------------------------------------
-void I2CTxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
+enum I2CError I2CTxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   uint8_t tx_source_len)
 {
+  if (_i2c_mode != I2C_MODE_IDLE)
+    return I2C_ERROR_BUSY;
   _slave_address = slave_address;
   _tx_source_ptr = tx_source_ptr;
   _tx_source_len = tx_source_len;
   _i2c_error = I2C_ERROR_NONE;
   I2CStart(I2C_MODE_TX);
+  return I2C_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------
-void I2CTxBytesToRegister(uint8_t slave_address, uint8_t register_address,
-  uint8_t *tx_source_ptr, uint8_t tx_source_len)
+enum I2CError I2CTxBytesToRegister(uint8_t slave_address,
+  uint8_t register_address, uint8_t *tx_source_ptr, uint8_t tx_source_len)
 {
   _register_address = register_address;
   _register_address_specified = TRUE;
-  I2CTxBytes(slave_address, tx_source_ptr, tx_source_len);
+  return I2CTxBytes(slave_address, tx_source_ptr, tx_source_len);
 }
 
 // -----------------------------------------------------------------------------
-void I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
+enum I2CError I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   uint8_t tx_source_len, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len)
 {
+  if (_i2c_mode != I2C_MODE_IDLE)
+    return I2C_ERROR_BUSY;
   _slave_address = slave_address;
   _tx_source_ptr = tx_source_ptr;
   _tx_source_len = tx_source_len;
@@ -120,12 +139,15 @@ void I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
   _rx_destination_len = rx_destination_len;
   _i2c_error = I2C_ERROR_NONE;
   I2CStart(I2C_MODE_TX_THEN_RX);
+  return I2C_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------
 void I2CWaitUntilCompletion(void)
 {
-  while (_i2c_mode != I2C_MODE_IDLE) continue;
+  uint16_t counter = 1000;
+  while (_i2c_mode != I2C_MODE_IDLE && counter) --counter;
+  if (!counter) I2CReset();
 }
 
 
@@ -167,6 +189,7 @@ static void I2CStop(void)
 {
   TWCR = _BV(TWINT) | _BV(TWSTO) | _BV(TWEN);
   _i2c_mode = I2C_MODE_IDLE;
+  _i2c_inactivity_counter = 0;
 }
 
 // -----------------------------------------------------------------------------
