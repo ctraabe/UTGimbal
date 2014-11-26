@@ -4,9 +4,9 @@ TARGET := ut-gimbal
 MCU    := atmega328p
 F_CPU  := 16000000L
 
-CFLAGS  = -c -g -DF_CPU="$(F_CPU)" $(LFLAGS) \
+CFLAGS  = -c -g -DF_CPU="$(F_CPU)" -std=gnu99 $(LFLAGS) \
           -Wa,-adhlns=$(addprefix $(BUILD_PATH)/,$(<:%.c=%.lst))
-LFLAGS := -std=gnu99 -Ofast -mmcu=$(MCU) -pedantic -Werror -Wall -Wextra \
+LFLAGS := -Ofast -mmcu=$(MCU) -pedantic -Werror -Wall -Wextra \
           -Wstrict-prototypes -Wundef -fshort-enums -ffreestanding -Wl,--relax
 
 CC     := avr-gcc

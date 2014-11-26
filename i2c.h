@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+typedef void (*i2c_callback)(void);
+
 enum I2CError {
   I2C_ERROR_NONE = 0,
   I2C_ERROR_ACK,
@@ -23,6 +25,9 @@ uint8_t I2CInactivtyCounter(void);
 
 enum I2CError I2CRxBytes(uint8_t slave_address,
   volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len);
+enum I2CError I2CRxBytesCallback(uint8_t slave_address,
+  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len,
+  i2c_callback callback_ptr);
 enum I2CError I2CRxBytesFromRegister(uint8_t slave_address,
   uint8_t register_address, volatile uint8_t *rx_destination_ptr,
   uint8_t rx_destination_len);

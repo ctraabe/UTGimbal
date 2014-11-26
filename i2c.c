@@ -25,6 +25,7 @@ static volatile uint8_t _i2c_inactivity_counter = 0;
 static volatile bool _register_address_specified = FALSE;
 
 static uint8_t _register_address = 0x00, _slave_address = 0x00;
+static i2c_callback _callback_ptr = 0;
 
 
 // =============================================================================
@@ -76,10 +77,18 @@ uint8_t I2CInactivtyCounter(void)
   return _i2c_inactivity_counter;
 }
 
-
 // -----------------------------------------------------------------------------
 enum I2CError I2CRxBytes(uint8_t slave_address,
   volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len)
+{
+  return I2CRxBytesCallback(slave_address, rx_destination_ptr,
+    rx_destination_len, 0);
+}
+
+// -----------------------------------------------------------------------------
+enum I2CError I2CRxBytesCallback(uint8_t slave_address,
+  volatile uint8_t *rx_destination_ptr, uint8_t rx_destination_len,
+  i2c_callback callback_ptr)
 {
   if (_i2c_mode != I2C_MODE_IDLE)
     return I2C_ERROR_BUSY;
@@ -87,6 +96,7 @@ enum I2CError I2CRxBytes(uint8_t slave_address,
   _rx_destination_ptr = rx_destination_ptr;
   _rx_destination_len = rx_destination_len;
   _i2c_error = I2C_ERROR_NONE;
+  _callback_ptr = callback_ptr;
   I2CStart(I2C_MODE_RX);
   return I2C_ERROR_NONE;
 }
@@ -145,7 +155,7 @@ enum I2CError I2CTxThenRxBytes(uint8_t slave_address, uint8_t *tx_source_ptr,
 // -----------------------------------------------------------------------------
 void I2CWaitUntilCompletion(void)
 {
-  uint16_t counter = 1000;
+  uint16_t counter = 10000;
   while (_i2c_mode != I2C_MODE_IDLE && counter) --counter;
   if (!counter) I2CReset();
 }
@@ -223,6 +233,7 @@ static void Next(void)
     case I2C_MODE_RX:
     default:
       I2CStop();
+      if (_callback_ptr) (*_callback_ptr)();
       break;
   }
 }

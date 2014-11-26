@@ -4,6 +4,14 @@
 
 #include "endian.h"
 #include "i2c.h"
+#include "timer0.h"
+
+
+// =============================================================================
+// Private data:
+
+#define MPU6050_FIFO_DATA_SIZE (MPU6050_FIFO_ACCELEROMETER * 3 \
+  * sizeof(int16_t) + MPU6050_FIFO_GYRO * 3 * sizeof(int16_t))
 
 
 // =============================================================================
@@ -38,6 +46,55 @@ void MPU6050RawInit(void)
   I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_INT_PIN_CFG,
     tx_buffer, 2);
   I2CWaitUntilCompletion();
+/*
+  // Push all gyro and accelerometer samples to the FIFO
+  tx_buffer[0] = 0;
+  if (MPU6050_FIFO_ACCELEROMETER) {
+    tx_buffer[0] |= _BV(MPU6050_FIFO_ENABLE_ACCEL_EN);
+  }
+  if (MPU6050_FIFO_GYRO) {
+    tx_buffer[0] |= _BV(MPU6050_FIFO_ENABLE_XG_EN)
+      | _BV(MPU6050_FIFO_ENABLE_YG_EN) | _BV(MPU6050_FIFO_ENABLE_ZG_EN);
+  }
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_FIFO_ENABLE,
+    tx_buffer, 1);
+  I2CWaitUntilCompletion();
+  Timer0Delay(50);
+
+  // Reset the FIFO
+  tx_buffer[0] = _BV(MPU6050_USER_CTRL_FIFO_RESET);
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_USER_CTRL, tx_buffer,
+    1);
+  I2CWaitUntilCompletion();
+  Timer0Delay(50);
+
+  // Start the FIFO
+  tx_buffer[0] = _BV(MPU6050_USER_CTRL_FIFO_EN);
+  I2CTxBytesToRegister(MPU6050_DEFAULT_ADDRESS, MPU6050_RA_USER_CTRL, tx_buffer,
+    1);
+  I2CWaitUntilCompletion();
+*/
+}
+
+// -----------------------------------------------------------------------------
+uint8_t MPU6050RawReadFIFO(void)
+// enum MPU6050Error MPU6050RawReadFIFO(void)
+{
+  uint8_t counter = 0, remaining = 1;
+  uint8_t rx_buffer[MPU6050_FIFO_DATA_SIZE];
+  enum MPU6050Error error = MPU6050_ERROR_NONE;
+
+  // TODO: Make this non-blocking
+  while (remaining) {
+    error = MPU6050ReadFromFIFO(rx_buffer, MPU6050_FIFO_DATA_SIZE, &remaining);
+    if (error != MPU6050_ERROR_NONE)
+      return error;
+    I2CWaitUntilCompletion();
+    ++counter;
+  }
+
+  return counter;
+  // return MPU6050_ERROR_NONE;
 }
 
 // -----------------------------------------------------------------------------

@@ -13,11 +13,12 @@
 
 void MPU6050Init(void)
 {
+/*
   // Connect the interrupt signal from MPU6050 to pin D2.
   DDRD &= ~_BV(DDD2);  // Set pin D2 (int0) to input
   EIMSK |= _BV(INT0);  // Enable the interrupt on pin D2 (int0)
   EICRA |= _BV(ISC01) | _BV(ISC00);  // Set int0 to trigger on the rising edge
-
+*/
   uint8_t tx_buffer;
 
   // Reset the MPU6050

@@ -19,7 +19,7 @@
 #define MPU6050_RA_CONFIG             (0x1A)
 #define MPU6050_RA_GYRO_CONFIG        (0x1B)
 #define MPU6050_RA_ACCEL_CONFIG       (0x1C)
-#define MPU6050_RA_FIFO_ENABLE        (0x1C)
+#define MPU6050_RA_FIFO_ENABLE        (0x23)
 #define MPU6050_RA_INT_PIN_CFG        (0x37)
 #define MPU6050_RA_INT_ENABLE         (0x38)
 #define MPU6050_RA_ACCEL_XOUT_H       (0x3B)
@@ -45,11 +45,16 @@
 #define MPU6050_ACCEL_CONFIG_AFS_SEL1    (4)
 #define MPU6050_ACCEL_CONFIG_AFS_SEL0    (3)
 
+#define MPU6050_FIFO_ENABLE_XG_EN        (6)
+#define MPU6050_FIFO_ENABLE_YG_EN        (5)
+#define MPU6050_FIFO_ENABLE_ZG_EN        (4)
+#define MPU6050_FIFO_ENABLE_ACCEL_EN     (3)
+
 #define MPU6050_INT_PIN_CFG_LATCH_INT_EN (5)
 #define MPU6050_INT_PIN_CFG_INT_RD_CLEAR (4)
 
-#define MPU6050_INT_ENABLE_DATA_RDY_EN   (0)
 #define MPU6050_INT_ENABLE_DMP_INT_EN    (1)
+#define MPU6050_INT_ENABLE_DATA_RDY_EN   (0)
 
 #define MPU6050_USER_CTRL_DMP_EN         (7)
 #define MPU6050_USER_CTRL_FIFO_EN        (6)
