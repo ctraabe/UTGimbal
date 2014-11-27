@@ -183,7 +183,14 @@ void MPU6050DMPInit(void)
   I2CWaitUntilCompletion();
 
   // Set the biases (specific to each chip)
-#if MPU6050_SPARKFUN
+#if MPU6050_BLUE
+  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
+  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
+  MPU6050SetGyroBias(MPU6050_X_AXIS, -43);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
+  MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
+#elif MPU6050_SPARKFUN
   MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
   MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
   MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
@@ -191,12 +198,12 @@ void MPU6050DMPInit(void)
   MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
   MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
 #else
-  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -665);
-  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 673);
-  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 465);
-  MPU6050SetGyroBias(MPU6050_X_AXIS, 49);
-  MPU6050SetGyroBias(MPU6050_Y_AXIS, 0);
-  MPU6050SetGyroBias(MPU6050_Z_AXIS, -10);
+  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -1062);
+  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 680);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 532);
+  MPU6050SetGyroBias(MPU6050_X_AXIS, 28);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, 9);
+  MPU6050SetGyroBias(MPU6050_Z_AXIS, 40);
 #endif
 }
 

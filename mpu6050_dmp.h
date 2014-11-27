@@ -9,6 +9,8 @@
 #define DMP_SAMPLE_TIME (1.0 / (float)DMP_SAMPLE_RATE)
 
 // Sparkfun breakout or other
+#define MPU6050_BASECAM (1)
+#define MPU6050_BLUE (0)
 #define MPU6050_SPARKFUN (0)
 
 // Set the following to 1 or 0 to enable/disable

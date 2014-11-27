@@ -13,12 +13,11 @@
 
 void MPU6050Init(void)
 {
-/*
-  // Connect the interrupt signal from MPU6050 to pin D2.
-  DDRD &= ~_BV(DDD2);  // Set pin D2 (int0) to input
-  EIMSK |= _BV(INT0);  // Enable the interrupt on pin D2 (int0)
-  EICRA |= _BV(ISC01) | _BV(ISC00);  // Set int0 to trigger on the rising edge
-*/
+  // Connect the interrupt signal from MPU6050 to pin PCINT11. Enable pin change
+  // interrupts for pins PCINT14..8 (bank 1) and mask all but PCINT11.
+  PCICR = _BV(PCIE1);
+  PCMSK1 = _BV(PCINT11);
+
   uint8_t tx_buffer;
 
   // Reset the MPU6050
