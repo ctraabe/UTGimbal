@@ -3,6 +3,8 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
+#include "i2c.h"
+
 
 // =============================================================================
 // Private data:
@@ -23,7 +25,7 @@ const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
 // Private function declarations:
 
 static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit);
-void MoveToPosition(enum Motors motor, uint8_t position);
+static void MoveToPosition(enum Motors motor, uint8_t position);
 
 
 // =============================================================================
@@ -80,7 +82,7 @@ static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit)
   return (int8_t)input;
 }
 
-void MoveToPosition(enum Motors motor, uint8_t position) {
+static void MoveToPosition(enum Motors motor, uint8_t position) {
   uint8_t stators[3];
   stators[0] = pgm_read_byte(&(sin_table[position]));
   if (position < (SINE_TABLE_LENGTH * 2 / 3))
@@ -93,13 +95,20 @@ void MoveToPosition(enum Motors motor, uint8_t position) {
   else
     position -= (SINE_TABLE_LENGTH * 2 / 3);
   stators[2] = pgm_read_byte(&(sin_table[position]));
-  if (motor == MOTOR_ROLL) {
-    OCR1A = stators[0];
-    OCR1B = stators[1];
-    OCR2A = stators[2];
-  } else if (motor == MOTOR_PITCH) {
-    OCR2B = stators[0];
-    OCR0B = stators[1];
-    OCR0A = stators[2];
+
+  switch (motor)
+  {
+    case MOTOR_ROLL:
+      OCR1A = stators[0];
+      OCR1B = stators[1];
+      OCR2A = stators[2];
+      break;
+    case MOTOR_PITCH:
+      OCR2B = stators[0];
+      OCR0B = stators[1];
+      OCR0A = stators[2];
+      break;
+    default:
+      break;
   }
 }
