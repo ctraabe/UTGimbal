@@ -3,29 +3,35 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
-#include "i2c.h"
-
 
 // =============================================================================
 // Private data:
 
-const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
-127,131,136,140,145,149,153,158,162,166,170,175,179,183,187,191,194,198,202,205,
-209,212,215,218,221,224,227,230,232,235,237,239,241,243,245,246,248,249,250,251,
-252,253,253,254,254,254,254,254,253,253,252,251,250,249,248,246,245,243,241,239,
-237,235,232,230,227,224,221,218,215,212,209,205,202,198,194,191,187,183,179,175,
-170,166,162,158,153,149,145,140,136,131,127,123,118,114,109,105,101,96,92,88,84,
-79,75,71,67,63,60,56,52,49,45,42,39,36,33,30,27,24,22,19,17,15,13,11,9,8,6,5,4,
-3,2,1,1,0,0,0,0,0,1,1,2,3,4,5,6,8,9,11,13,15,17,19,22,24,27,30,33,36,39,42,45,
-49,52,56,60,63,67,71,75,79,84,88,92,96,101,105,109,114,118,123
+const uint8_t sin_table[SINE_TABLE_LENGTH/4] PROGMEM = {
+128, 129, 130, 131, 132, 132, 133, 134, 135, 136, 137, 138, 139, 139, 140, 141,
+142, 143, 144, 145, 146, 147, 147, 148, 149, 150, 151, 152, 153, 154, 154, 155,
+156, 157, 158, 159, 160, 160, 161, 162, 163, 164, 165, 166, 166, 167, 168, 169,
+170, 171, 172, 172, 173, 174, 175, 176, 176, 177, 178, 179, 180, 181, 181, 182,
+183, 184, 185, 185, 186, 187, 188, 189, 189, 190, 191, 192, 192, 193, 194, 195,
+195, 196, 197, 198, 198, 199, 200, 201, 201, 202, 203, 204, 204, 205, 206, 206,
+207, 208, 208, 209, 210, 210, 211, 212, 212, 213, 214, 214, 215, 216, 216, 217,
+218, 218, 219, 220, 220, 221, 221, 222, 223, 223, 224, 224, 225, 225, 226, 227,
+227, 228, 228, 229, 229, 230, 230, 231, 231, 232, 232, 233, 233, 234, 234, 235,
+235, 236, 236, 237, 237, 238, 238, 239, 239, 239, 240, 240, 241, 241, 242, 242,
+242, 243, 243, 243, 244, 244, 245, 245, 245, 246, 246, 246, 247, 247, 247, 247,
+248, 248, 248, 249, 249, 249, 249, 250, 250, 250, 250, 251, 251, 251, 251, 252,
+252, 252, 252, 252, 252, 253, 253, 253, 253, 253, 253, 254, 254, 254, 254, 254,
+254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+255
 };
+static int16_t magnetic_field_direction[NUMBER_OF_MOTORS] = {0};
+static int8_t magnetic_field_rotations[NUMBER_OF_MOTORS] = {0};
 
 
 // =============================================================================
 // Private function declarations:
 
-static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit);
-static void MoveToPosition(enum Motors motor, uint8_t position);
+static void MoveToPosition(enum Motors motor);
 
 
 // =============================================================================
@@ -58,57 +64,61 @@ void MotorPWMTimersInit(void) {
 
 void MotorMove(enum Motors motor, int8_t segments)
 {
-  static uint8_t position[NUMBER_OF_MOTORS] = {0};
-  int16_t temp = position[motor] + segments;
-  position[motor] = Wrap0ToLimit(temp, SINE_TABLE_LENGTH);
-  MoveToPosition(motor, position[motor]);
-}
+  magnetic_field_direction[motor] += segments;
+  if (magnetic_field_direction[motor] < 0)
+  {
+    magnetic_field_direction[motor] += SINE_TABLE_LENGTH;
+    --magnetic_field_rotations[motor];
+  }
+  else if (magnetic_field_direction[motor] >= SINE_TABLE_LENGTH)
+  {
+    magnetic_field_direction[motor] -= SINE_TABLE_LENGTH;
+    ++magnetic_field_rotations[motor];
+  }
 
-void MotorMoveToAngle(enum Motors motor, float angle)
-{
-  int16_t position = (int16_t)(angle * (float)(ROTOR_POLES * SINE_TABLE_LENGTH)
-    / 2.0 / M_PI + 0.5);
-  MoveToPosition(motor, Wrap0ToLimit(position, SINE_TABLE_LENGTH));
+  MoveToPosition(motor);
 }
 
 
 // =============================================================================
 // Private functions:
 
-static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit)
-{
-  while (input < 0) input += limit;
-  while (input >= limit) input -= limit;
-  return (int8_t)input;
-}
+static void MoveToPosition(enum Motors motor) {
+  int16_t index = magnetic_field_direction[motor];
+  uint8_t stator_pwm[3] = {0};
 
-static void MoveToPosition(enum Motors motor, uint8_t position) {
-  uint8_t stators[3];
-  stators[0] = pgm_read_byte(&(sin_table[position]));
-  if (position < (SINE_TABLE_LENGTH * 2 / 3))
-    position += (SINE_TABLE_LENGTH / 3);
-  else
-    position -= (SINE_TABLE_LENGTH * 2 / 3);
-  stators[1] = pgm_read_byte(&(sin_table[position]));
-  if (position < (SINE_TABLE_LENGTH * 2 / 3))
-    position += (SINE_TABLE_LENGTH / 3);
-  else
-    position -= (SINE_TABLE_LENGTH * 2 / 3);
-  stators[2] = pgm_read_byte(&(sin_table[position]));
-
-  switch (motor)
+  uint8_t i = 2;
+  for (;;)
   {
-    case MOTOR_ROLL:
-      OCR1A = stators[0];
-      OCR1B = stators[1];
-      OCR2A = stators[2];
-      break;
-    case MOTOR_PITCH:
-      OCR2B = stators[0];
-      OCR0B = stators[1];
-      OCR0A = stators[2];
-      break;
-    default:
-      break;
+    if (index >= SINE_TABLE_LENGTH * 3 / 4)
+      stator_pwm[i]
+        = 255 - pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH - index - 1]));
+    else if (index >= SINE_TABLE_LENGTH * 2 / 4)
+      stator_pwm[i]
+        = 255 - pgm_read_byte(&(sin_table[index - SINE_TABLE_LENGTH / 2]));
+    else if (index >= SINE_TABLE_LENGTH * 1 / 4)
+      stator_pwm[i]
+        = pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH / 2 - index - 1]));
+    else // (index >= SINE_TABLE_LENGTH * 0 / 4)
+      stator_pwm[i] = pgm_read_byte(&(sin_table[index]));
+
+    if (!i--)
+      break;  // Quit this loop after i == 0
+
+    index += SINE_TABLE_LENGTH * 1 / 3;
+    if (index >= SINE_TABLE_LENGTH) index -= SINE_TABLE_LENGTH;
+  }
+
+  if (motor == MOTOR_ROLL)
+  {
+    OCR1A = stator_pwm[0];
+    OCR1B = stator_pwm[1];
+    OCR2A = stator_pwm[2];
+  }
+  else
+  {
+    OCR2B = stator_pwm[0];
+    OCR0B = stator_pwm[1];
+    OCR0A = stator_pwm[2];
   }
 }
