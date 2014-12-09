@@ -36,15 +36,13 @@ static void Initialization(void)
   Timer0Init();  // Depends on Timer0 settings from MotorPWMTimersInit().
 
   sei();  // Enable interrupts
-/*
-  Timer0Delay(100);
-  BatteryMeasureVoltage();
+
   Timer0Delay(100);
   BatteryMeasurementInit();
-*/
-  // MPU6050RawInit();
-  MPU6050DMPInit();
-  // MAG3110Init();  // Note, sets int1 to input (conflict with buzzer)
+
+  // MPU6050RawInit();  // Read the raw gyro and accelerometer values.
+  MPU6050DMPInit();  // Use the DMP quaternion estimate.
+  // MAG3110Init();  // Digital compass (not connected).
 }
 
 // -----------------------------------------------------------------------------
@@ -66,15 +64,15 @@ int16_t main(void)
       // PORTB ^= _BV(PORTB5);
 
       // Pitch control law
-      float pitch_p_command = dmp_pitch_angle() * P_GAIN
+      float pitch_p_command = dmp_roll_angle() * P_GAIN
         * RADIANS_TO_MOTOR_SEGMENTS;
 
       // Roll control law
-      float roll_p_command = dmp_roll_angle() * P_GAIN
+      float roll_p_command = dmp_pitch_angle() * P_GAIN
         * RADIANS_TO_MOTOR_SEGMENTS;
 
-      MotorMove(MOTOR_ROLL, (int8_t)roll_p_command + (int8_t)pitch_p_command);
-      MotorMove(MOTOR_PITCH, -(int8_t)pitch_p_command);
+      MotorMove(MOTOR_ROLL, (int8_t)(pitch_p_command - roll_p_command));
+      MotorMove(MOTOR_PITCH, -(int8_t)roll_p_command);
 
       // Yaw control law (this could be moved to the yaw control unit)
       float yaw_p_command = dmp_yaw_angle() * P_GAIN
@@ -123,14 +121,13 @@ int16_t main(void)
       if (!--seconds_counter) {
         seconds_counter = 125;
         // PORTB ^= _BV(PORTB5);  // Green LED Heartbeat
-/*
+
         if (BatteryIsLow())
-          PORTB ^= _BV(PORTB4);  // Toggle red LED
+          PORTD ^= _BV(PORTD2);  // Toggle red LED
         else
-          PORTB &= ~_BV(PORTB4);  // Turn off red LED
-*/
+          PORTD &= ~_BV(PORTD2);  // Turn off red LED
       }
-      // BatteryMeasureVoltage();
+      BatteryMeasureVoltage();
     }
   }
 }

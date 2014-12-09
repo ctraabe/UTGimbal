@@ -58,8 +58,11 @@ void BatteryGuessCells(void)
   BatteryMeasureVoltage();
   while (!_battery_measurement_done) continue;
 
-  if (_battery_voltage_adc < 96)  // 2 cell battery
-    _battery_low_voltage = 67;
+  if (_battery_voltage_adc < 55)  // USB power
+    _battery_low_voltage = 0;
+  else if (_battery_voltage_adc < 96)  // 2 cell battery
+    // _battery_low_voltage = 67;
+    _battery_low_voltage = 75;  // Voltage regulator can't handle less than 7.5V
   else if (_battery_voltage_adc < 128)  // 3 cell battery
     _battery_low_voltage = 100;
   else  // More than 3 cells
