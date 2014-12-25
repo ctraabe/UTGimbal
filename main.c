@@ -78,7 +78,7 @@ int16_t main(void)
       float yaw_p_command = dmp_yaw_angle() * P_GAIN
         * RADIANS_TO_MOTOR_SEGMENTS;
 
-      yaw_message.command = (int8_t)yaw_p_command;
+      yaw_message.command = -(int8_t)yaw_p_command;
       // yaw_message.command = 1;
       I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
 

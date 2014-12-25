@@ -23,8 +23,8 @@ const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255
 };
-static int16_t magnetic_field_direction = {0};
-static int8_t magnetic_field_rotations = {0};
+static int16_t magnetic_field_direction = 0;
+static int8_t magnetic_field_rotations = 0;
 
 
 // =============================================================================
@@ -75,13 +75,6 @@ void MotorMove(int8_t segments)
 
 // =============================================================================
 // Private functions:
-
-static inline uint8_t Wrap0ToLimit(int16_t input, uint8_t limit)
-{
-  while (input < 0) input += limit;
-  while (input >= limit) input -= limit;
-  return (int8_t)input;
-}
 
 static void MoveToPosition(void) {
   int16_t index = magnetic_field_direction;
