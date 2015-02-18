@@ -37,8 +37,8 @@ int16_t main(void)
   for (;;)
   {
     while (!I2CDataIncoming()) continue;
-    while (!I2CByteReceived()) continue;
-    MotorMove(I2CGetLastByte());
+    while (!I2CDataInBuffer()) continue;
+    MotorMove(I2CPeek());
 
     if (CheckDelay(stopwatch))
     {

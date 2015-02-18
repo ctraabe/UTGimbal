@@ -28,10 +28,11 @@ enum I2CMode {
 #define SDA 0
 #define SCL 2
 
+static volatile uint8_t new_incoming_data_ = 0, data_in_buffer_ = 0;
+
 static volatile uint8_t rx_buffer_[I2C_RX_BUFFER_SIZE] = {0};
-static volatile uint8_t new_incoming_data_ = 0, byte_received_ = 0;
-static volatile uint8_t rx_buffer_head_ = 0;
-static uint8_t rx_buffer_tail_ = 0;
+static volatile int8_t rx_buffer_head_ = 0;
+static int8_t rx_buffer_tail_ = 0;
 
 
 // =============================================================================
@@ -72,13 +73,13 @@ uint8_t I2CDataIncoming(void)
 // -----------------------------------------------------------------------------
 // Indicates that a byte has been received since the last time this function was
 // called.
-uint8_t I2CByteReceived(void)
+uint8_t I2CDataInBuffer(void)
 {
   uint8_t ret;
   ATOMIC_BLOCK(ATOMIC_FORCEON)
   {
-    ret = byte_received_;
-    byte_received_ = 0;
+    ret = data_in_buffer_;
+    data_in_buffer_ = 0;
   }
   return ret;
 }
@@ -86,17 +87,27 @@ uint8_t I2CByteReceived(void)
 // -----------------------------------------------------------------------------
 // This function returns the oldest byte from the rx_buffer. It assumes that the
 // rx_buffer is never allowed to overflow, so that if the head and tail point to
-// the same location in the ring buffer, then there is no new data to read.
+// the same location in the ring buffer, then there is no new data to read. If
+// the head is different from the tail, the tail is advanced and the byte at
+// that location is returned.
 uint8_t I2CGetByteFromBuffer(void)
 {
-  while (rx_buffer_tail_ == rx_buffer_head_) continue;
+  while (!data_in_buffer_) continue;
   rx_buffer_tail_ = (rx_buffer_tail_ + 1) & I2C_RX_BUFFER_MASK;
+  if (rx_buffer_tail_ == rx_buffer_head_) data_in_buffer_ = 0;
   return rx_buffer_[rx_buffer_tail_];
 }
 
 // -----------------------------------------------------------------------------
-// Simply returns the data at the head of the ring buffer.
-uint8_t I2CGetLastByte(void)
+uint8_t I2CNumBytesInBuffer(void)
+{
+  return (rx_buffer_head_ - rx_buffer_tail_) & I2C_RX_BUFFER_MASK;
+}
+
+// -----------------------------------------------------------------------------
+// Simply returns the latest received byte without affecting the tail pointer of
+// the ring buffer.
+uint8_t I2CPeek(void)
 {
   return rx_buffer_[rx_buffer_head_];
 }
@@ -183,7 +194,7 @@ ISR(USI_OVF_vect)
     case I2C_MODE_RX:
       rx_buffer_head_ = (rx_buffer_head_ + 1) & I2C_RX_BUFFER_MASK;
       rx_buffer_[rx_buffer_head_] = usidr_buffer_;
-      byte_received_ = 1;
+      data_in_buffer_ = 1;
       I2CSendAck();
       state_ = I2C_MODE_RX_ACK;
       break;

@@ -13,8 +13,8 @@
 
 #include <inttypes.h>
 
-// The following must be a power of 2 (<=256) for the ring buffer to work.
-#define I2C_RX_BUFFER_SIZE (16)
+// The following must be a power of 2 (<=128) for the ring buffer to work.
+#define I2C_RX_BUFFER_SIZE (32)
 #define I2C_RX_BUFFER_MASK (I2C_RX_BUFFER_SIZE - 1)
 
 #if ( I2C_RX_BUFFER_SIZE & I2C_RX_BUFFER_MASK )
@@ -31,7 +31,7 @@ uint8_t I2CDataIncoming(void);
 // -----------------------------------------------------------------------------
 // Indicates that a byte has been received since the last time this function was
 // called.
-uint8_t I2CByteReceived(void);
+uint8_t I2CDataInBuffer(void);
 
 // -----------------------------------------------------------------------------
 // This function returns the oldest byte from the rx_buffer. It assumes that the
@@ -41,6 +41,6 @@ uint8_t I2CGetByteFromBuffer(void);
 
 // -----------------------------------------------------------------------------
 // Simply returns the data at the head of the ring buffer.
-uint8_t I2CGetLastByte(void);
+uint8_t I2CPeek(void);
 
 #endif  // _I2C_H
