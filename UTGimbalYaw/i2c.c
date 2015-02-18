@@ -19,6 +19,11 @@ enum I2CMode {
   I2C_MODE_RX,
   I2C_MODE_RX_ACK,
   I2C_MODE_TX,
+  I2C_MODE_EAVESDROP_ADDRESS_NACK,
+  I2C_MODE_EAVESDROP_REGISTER,
+  I2C_MODE_EAVESDROP_REGISTER_NACK,
+  I2C_MODE_EAVESDROP_RX,
+  I2C_MODE_EAVESDROP_RX_NACK,
 } state_;
 
 #define I2C_ADDRESS (0x40 << 1)
@@ -29,10 +34,16 @@ enum I2CMode {
 #define SCL 2
 
 static volatile uint8_t new_incoming_data_ = 0, data_in_buffer_ = 0;
+static uint8_t eavesdrop_register_ = 0x00, eavesdrop_address_ = 0x00;
 
 static volatile uint8_t rx_buffer_[I2C_RX_BUFFER_SIZE] = {0};
 static volatile int8_t rx_buffer_head_ = 0;
 static int8_t rx_buffer_tail_ = 0;
+
+static volatile uint8_t eavesdrop_incoming_ = 0, eavesdrop_data_in_buffer_ = 0;
+static volatile uint8_t eavesdrop_buffer_[I2C_RX_BUFFER_SIZE] = {0};
+static volatile int8_t eavesdrop_buffer_head_ = 0;
+// static int8_t eavesdrop_buffer_tail_ = 0;
 
 
 // =============================================================================
@@ -112,6 +123,13 @@ uint8_t I2CPeek(void)
   return rx_buffer_[rx_buffer_head_];
 }
 
+// -----------------------------------------------------------------------------
+void I2CEavesdrop(uint8_t eavesdrop_address, uint8_t eavesdrop_register)
+{
+  eavesdrop_address_ = eavesdrop_address;
+  eavesdrop_register_ = eavesdrop_register;
+}
+
 
 // =============================================================================
 // Private Functions:
@@ -131,6 +149,13 @@ static inline void I2CSendAck(void)
   USIDR = 0;
   // Change SDA pin to output to send ACK (no bit setting required)
   I2C_DDR |= _BV(SDA);
+  // Set the counter to overflow after 2 edges (1 cycle)
+  USISR = 0x0E;
+}
+
+// -----------------------------------------------------------------------------
+static inline void I2CSendNack(void)
+{
   // Set the counter to overflow after 2 edges (1 cycle)
   USISR = 0x0E;
 }
@@ -177,6 +202,16 @@ ISR(USI_OVF_vect)
           // state_ = I2C_MODE_TX_ACK;
         }
       }
+      else if (usidr_buffer_ == (eavesdrop_address_ | 0x01))
+      {
+        I2CSendNack();
+        state_ = I2C_MODE_EAVESDROP_ADDRESS_NACK;
+      }
+      else if ((usidr_buffer_ == eavesdrop_address_) && eavesdrop_incoming_)
+      {
+        I2CSendNack();
+        state_ = I2C_MODE_EAVESDROP_REGISTER_NACK;
+      }
       else
       {
         // Disable counter overflow interrupt enable start condition interrupt.
@@ -197,6 +232,22 @@ ISR(USI_OVF_vect)
       data_in_buffer_ = 1;
       I2CSendAck();
       state_ = I2C_MODE_RX_ACK;
+      break;
+    case I2C_MODE_EAVESDROP_ADDRESS_NACK:
+      state_ = I2C_MODE_EAVESDROP_REGISTER;
+      break;
+    case I2C_MODE_EAVESDROP_REGISTER:
+      eavesdrop_incoming_ = usidr_buffer_ == eavesdrop_register_;
+      I2CIgnoreUntilNextStart();
+      break;
+    case I2C_MODE_EAVESDROP_REGISTER_NACK:
+    case I2C_MODE_EAVESDROP_RX_NACK:
+      state_ = I2C_MODE_EAVESDROP_RX;
+      break;
+    case I2C_MODE_EAVESDROP_RX:
+      eavesdrop_buffer_head_ = (eavesdrop_buffer_head_ + 1) & I2C_RX_BUFFER_MASK;
+      eavesdrop_data_in_buffer_ = 1;
+      state_ = I2C_MODE_EAVESDROP_RX_NACK;
       break;
     default:
       break;
