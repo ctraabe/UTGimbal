@@ -268,11 +268,12 @@ static void ProcessTxInterrupt(void)
         // Indicates that target has canceled reception
         _i2c_error = I2C_ERROR_NACK;
       }
-      // continue
+      Next();
+      break;
     case TW_MT_SLA_NACK:  // SLA+W transmitted, NACK received
       // Suggests that the target device is not present
       _i2c_error = I2C_ERROR_NO_REPLY;
-      Next();
+      I2CStop();
       break;
     case TW_MT_ARB_LOST:  // arbitration lost in SLA+W or data
     case TW_NO_INFO:  // no state information available

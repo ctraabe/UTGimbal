@@ -31,7 +31,7 @@ static int8_t magnetic_field_rotations[NUMBER_OF_MOTORS] = {0};
 // =============================================================================
 // Private function declarations:
 
-static void MoveToPosition(enum Motors motor);
+static void MoveToPosition(enum Motors motor, uint8_t shift);
 
 
 // =============================================================================
@@ -62,7 +62,7 @@ void MotorPWMTimersInit(void) {
   TCCR2B = _BV(CS20);
 }
 
-void MotorMove(enum Motors motor, int8_t segments)
+void MotorMove(enum Motors motor, int8_t segments, uint8_t shift)
 {
   magnetic_field_direction[motor] += segments;
   if (magnetic_field_direction[motor] < 0)
@@ -76,14 +76,14 @@ void MotorMove(enum Motors motor, int8_t segments)
     ++magnetic_field_rotations[motor];
   }
 
-  MoveToPosition(motor);
+  MoveToPosition(motor, shift);
 }
 
 
 // =============================================================================
 // Private functions:
 
-static void MoveToPosition(enum Motors motor) {
+static void MoveToPosition(enum Motors motor, uint8_t shift) {
   int16_t index = magnetic_field_direction[motor];
   uint8_t stator_pwm[3] = {0};
 
@@ -111,14 +111,14 @@ static void MoveToPosition(enum Motors motor) {
 
   if (motor == MOTOR_ROLL)
   {
-    OCR1A = stator_pwm[0];
-    OCR1B = stator_pwm[1];
-    OCR2A = stator_pwm[2];
+    OCR1A = stator_pwm[0] >> shift;
+    OCR1B = stator_pwm[1] >> shift;
+    OCR2A = stator_pwm[2] >> shift;
   }
   else
   {
-    OCR2B = stator_pwm[0];
-    OCR0B = stator_pwm[1];
-    OCR0A = stator_pwm[2];
+    OCR2B = stator_pwm[0] >> shift;
+    OCR0B = stator_pwm[1] >> shift;
+    OCR0A = stator_pwm[2] >> shift;
   }
 }

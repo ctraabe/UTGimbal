@@ -19,7 +19,7 @@ enum Motors {
 
 void MotorPWMTimersInit(void);
 
-void MotorMove(enum Motors motor, int8_t segments);
+void MotorMove(enum Motors motor, int8_t segments, uint8_t shift);
 void MotorMoveToAngle(enum Motors motor, float angle);
 
 #endif //_MOTORS_H

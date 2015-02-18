@@ -14,9 +14,9 @@
 #define MPU6050_SPARKFUN (0)
 
 // Set the following to 1 or 0 to enable/disable
-#define DMP_OUTPUT_ACCELEROMETER   (0)
-#define DMP_OUTPUT_GYRO            (0)
-#define DMP_CALIBRATED_GYRO_OUTPUT (0)
+#define DMP_OUTPUT_ACCELEROMETER   (1)
+#define DMP_OUTPUT_GYRO            (1)
+#define DMP_CALIBRATED_GYRO_OUTPUT (1)
 #define DMP_AUTO_CALIBRATE_GYRO    (1)
 
 // Accessors:
