@@ -32,7 +32,7 @@ static volatile uint8_t new_incoming_data_ = 0, data_in_buffer_ = 0;
 
 static volatile uint8_t rx_buffer_[I2C_RX_BUFFER_SIZE] = {0};
 static volatile int8_t rx_buffer_head_ = 0;
-static int8_t rx_buffer_tail_ = 0;
+// static int8_t rx_buffer_tail_ = 0;
 
 
 // =============================================================================
@@ -84,6 +84,7 @@ uint8_t I2CDataInBuffer(void)
   return ret;
 }
 
+/*
 // -----------------------------------------------------------------------------
 // This function returns the oldest byte from the rx_buffer. It assumes that the
 // rx_buffer is never allowed to overflow, so that if the head and tail point to
@@ -103,6 +104,7 @@ uint8_t I2CNumBytesInBuffer(void)
 {
   return (rx_buffer_head_ - rx_buffer_tail_) & I2C_RX_BUFFER_MASK;
 }
+*/
 
 // -----------------------------------------------------------------------------
 // Simply returns the latest received byte without affecting the tail pointer of

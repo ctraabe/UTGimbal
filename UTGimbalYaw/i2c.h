@@ -33,11 +33,15 @@ uint8_t I2CDataIncoming(void);
 // called.
 uint8_t I2CDataInBuffer(void);
 
+/*
 // -----------------------------------------------------------------------------
 // This function returns the oldest byte from the rx_buffer. It assumes that the
 // rx_buffer is never allowed to overflow, so that if the head and tail point to
 // the same location in the ring buffer, then there is no new data to read.
 uint8_t I2CGetByteFromBuffer(void);
+
+uint8_t I2CNumBytesInBuffer(void);
+*/
 
 // -----------------------------------------------------------------------------
 // Simply returns the data at the head of the ring buffer.

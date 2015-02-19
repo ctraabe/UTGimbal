@@ -23,14 +23,14 @@ const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255
 };
-static int16_t magnetic_field_direction = 0;
-static int8_t magnetic_field_rotations = 0;
+static int16_t magnetic_field_direction_ = SINE_TABLE_LENGTH / 2;
+static int8_t magnetic_field_rotations_ = 0;
 
 
 // =============================================================================
 // Private function declarations:
 
-static void MoveToPosition(void);
+static void MoveToPosition(uint8_t shift);
 
 
 // =============================================================================
@@ -55,29 +55,34 @@ void MotorPWMTimerInit(void) {
   TCCR1D = _BV(WGM10);
 }
 
-void MotorMove(int8_t segments)
+// -----------------------------------------------------------------------------
+void MotorMove(int8_t segments, uint8_t shift)
 {
-  magnetic_field_direction += segments;
-  if (magnetic_field_direction < 0)
+  magnetic_field_direction_ += segments;
+  if (magnetic_field_direction_ < 0)
   {
-    magnetic_field_direction += SINE_TABLE_LENGTH;
-    --magnetic_field_rotations;
+    magnetic_field_direction_ += SINE_TABLE_LENGTH;
+    --magnetic_field_rotations_;
   }
-  else if (magnetic_field_direction >= SINE_TABLE_LENGTH)
+  else if (magnetic_field_direction_ >= SINE_TABLE_LENGTH)
   {
-    magnetic_field_direction -= SINE_TABLE_LENGTH;
-    ++magnetic_field_rotations;
+    magnetic_field_direction_ -= SINE_TABLE_LENGTH;
+    ++magnetic_field_rotations_;
   }
 
-  MoveToPosition();
+  MoveToPosition(shift);
 }
 
+// -----------------------------------------------------------------------------
+int8_t magnetic_field_rotations(void) {
+  return magnetic_field_rotations_;
+}
 
 // =============================================================================
 // Private functions:
 
-static void MoveToPosition(void) {
-  int16_t index = magnetic_field_direction;
+static void MoveToPosition(uint8_t shift) {
+  int16_t index = magnetic_field_direction_;
   uint8_t stator_pwm[3] = {0};
 
   uint8_t i = 2;
@@ -102,7 +107,7 @@ static void MoveToPosition(void) {
     if (index >= SINE_TABLE_LENGTH) index -= SINE_TABLE_LENGTH;
   }
 
-  OCR1A = stator_pwm[0];  // OC1A is pin B0
-  OCR1B = stator_pwm[1];  // OC1B is pin B2
-  OCR1D = stator_pwm[2];  // OC1D is pin B4
+  OCR1A = stator_pwm[0] >> shift;  // OC1A is pin B0
+  OCR1B = stator_pwm[1] >> shift;  // OC1B is pin B2
+  OCR1D = stator_pwm[2] >> shift;  // OC1D is pin B4
 }

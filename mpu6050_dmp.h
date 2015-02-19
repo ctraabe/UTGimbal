@@ -7,7 +7,7 @@
 
 #define DMP_SAMPLE_RATE (200)
 #define DMP_SAMPLE_TIME (1.0 / (float)DMP_SAMPLE_RATE)
-#define DMP_GYRO_TO_RADPS (2000. / 32768. * 3.141592654 / 180.)
+#define DMP_GYRO_TO_RADPS (2000. / 32768. * M_PI / 180.)
 
 // Set the following to 1 or 0 to enable/disable
 #define DMP_OUTPUT_ACCELEROMETER   (1)

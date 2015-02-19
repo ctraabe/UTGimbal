@@ -31,6 +31,8 @@ int16_t main(void)
 {
   Initialization();
 
+  uint8_t soft_start_shifter = 4;
+
   // Main loop
   uint16_t stopwatch = GetDelay(0);
   PORTA |= _BV(PORTA4);
@@ -38,12 +40,14 @@ int16_t main(void)
   {
     while (!I2CDataIncoming()) continue;
     while (!I2CDataInBuffer()) continue;
-    MotorMove(I2CPeek());
+    MotorMove(I2CPeek() - magnetic_field_rotations(), soft_start_shifter);
 
     if (CheckDelay(stopwatch))
     {
       stopwatch += 1000;
       PORTA ^= _BV(PORTA4);
+
+      if (soft_start_shifter) --soft_start_shifter;
     }
   }
 }
