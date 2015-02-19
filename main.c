@@ -1,9 +1,11 @@
 #include "main.h"
 
+#include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
 #include "battery.h"
+#include "eeprom.h"
 #include "endian.h"
 #include "i2c.h"
 #include "motors.h"
@@ -72,16 +74,14 @@ int16_t main(void)
     if (_status_MPU6050 == MPU6050_DATA_WAITING) {
       DMPReadFIFO();
       _status_MPU6050 = MPU6050_IDLE;
-
+/*
       static enum DMPCalibrationMode dmp_calibrate_mode = DMP_CALIBRATE_START;
-      static int16_t offset = 0;
-      int16_t sample;
       if (dmp_calibrate_mode) {
-        DMPCalibrate(&dmp_calibrate_mode, &offset, &sample);
-        // UARTPrintS16((int16_t)dmp_calibrate_mode);
-        // UARTPrintS16(offset);
-        UARTPrintS16(sample);
+        DMPCalibrate(&dmp_calibrate_mode);
       }
+*/
+      // UARTPrintS16(eeprom_read_word((uint16_t*)EEPROM_GYRO_Z_OFFSET));
+      UARTPrintS16(dmp_gyro(0));
 
       // Position control
       float roll_p_command = dmp_roll_angle() * 0.025

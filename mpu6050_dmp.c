@@ -1,8 +1,10 @@
 #include "mpu6050_dmp.h"
 
 #include <string.h>
+#include <avr/eeprom.h>
 
 #include "dmp_firmware.h"
+#include "eeprom.h"
 #include "endian.h"
 #include "i2c.h"
 #include "quaternion.h"
@@ -41,10 +43,11 @@ static uint8_t _dmp_euler_angles = DMP_EULER_ANGLES_CLEAR;
 // Private function declarations:
 
 static inline float q0_squared(void);
-static inline int8_t sign(int32_t);
+static inline int8_t sign(int16_t);
 static int8_t MPU6050AccessDMPMemory(uint16_t memory_address, uint8_t *buffer,
   uint8_t length, enum MPU6050MemoryAccessMode memory_access_mode);
 static int8_t DMPLoadFirmware(void);
+static void DMPLoadOffsets(void);
 
 
 // =============================================================================
@@ -184,28 +187,7 @@ void MPU6050DMPInit(void)
   I2CWaitUntilCompletion();
 
   // Set the biases (specific to each chip)
-#if MPU6050_BLUE
-  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
-  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
-  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
-  MPU6050SetGyroBias(MPU6050_X_AXIS, -43);
-  MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
-  MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
-#elif MPU6050_SPARKFUN
-  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -66);
-  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 219);
-  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 1062);
-  MPU6050SetGyroBias(MPU6050_X_AXIS, -43);
-  MPU6050SetGyroBias(MPU6050_Y_AXIS, 83);
-  MPU6050SetGyroBias(MPU6050_Z_AXIS, 9);
-#else
-  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, -1062);
-  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, 680);
-  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, 532);
-  MPU6050SetGyroBias(MPU6050_X_AXIS, 28);
-  MPU6050SetGyroBias(MPU6050_Y_AXIS, 9);
-  MPU6050SetGyroBias(MPU6050_Z_AXIS, 40);
-#endif
+  DMPLoadOffsets();
 }
 
 // -----------------------------------------------------------------------------
@@ -249,93 +231,103 @@ enum MPU6050Error DMPReadFIFO(void)
 }
 
 // -----------------------------------------------------------------------------
-void DMPCalibrate(enum DMPCalibrationMode* mode, int16_t* offset, int16_t *sample)
+void DMPCalibrate(enum DMPCalibrationMode* mode)
 {
+  static int16_t offset = 0;
+  int16_t sample = 0;
+
   PORTB ^= _BV(PORTB5);  // Green LED
 
   switch(*mode) {
     case DMP_CALIBRATE_GYRO_X:
-      *sample = _dmp_gyro[0];
+      sample = _dmp_gyro[0];
       break;
     case DMP_CALIBRATE_GYRO_Y:
-      *sample = _dmp_gyro[1];
+      sample = _dmp_gyro[1];
       break;
     case DMP_CALIBRATE_GYRO_Z:
-      *sample = _dmp_gyro[2];
+      sample = _dmp_gyro[2];
       break;
-    case DMP_CALIBRATE_ACC_X:
-      *sample = _dmp_accelerometer[0];
+    case DMP_CALIBRATE_ACCELEROMETER_X:
+      sample = _dmp_accelerometer[0];
       break;
-    case DMP_CALIBRATE_ACC_Y:
-      *sample = _dmp_accelerometer[1];
+    case DMP_CALIBRATE_ACCELEROMETER_Y:
+      sample = _dmp_accelerometer[1];
       break;
-    case DMP_CALIBRATE_ACC_Z:
-      *sample = _dmp_accelerometer[2];
+    case DMP_CALIBRATE_ACCELEROMETER_Z:
+      sample = _dmp_accelerometer[2];
       break;
     default:
       break;
   }
 
-  if (*mode != DMP_CALIBRATE_ACC_Z) {
-    if (*sample == 0)
-      *offset = 0;
-    else
-      *offset -= sign(*sample);
-  }
+  if (*mode != DMP_CALIBRATE_ACCELEROMETER_Z && sample)
+    offset -= sign(sample);
 
   switch(*mode) {
     case DMP_CALIBRATE_START:
       *mode = DMP_CALIBRATE_GYRO_X;
-      MPU6050SetGyroBias(MPU6050_X_AXIS, *offset);
+      MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
       break;
     case DMP_CALIBRATE_GYRO_X:
-      if (*sample == 0) {
+      if (sample == 0) {
+        eeprom_update_word((uint16_t*)EEPROM_GYRO_X_OFFSET, offset);
+        offset = 0;
         *mode = DMP_CALIBRATE_GYRO_Y;
-        MPU6050SetGyroBias(MPU6050_Y_AXIS, *offset);
+        MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
       } else {
-        MPU6050SetGyroBias(MPU6050_X_AXIS, *offset);
+        MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
       }
       break;
     case DMP_CALIBRATE_GYRO_Y:
-      if (*sample == 0) {
+      if (sample == 0) {
+        eeprom_update_word((uint16_t*)EEPROM_GYRO_Y_OFFSET, offset);
+        offset = 0;
         *mode = DMP_CALIBRATE_GYRO_Z;
-        MPU6050SetGyroBias(MPU6050_Z_AXIS, *offset);
+        MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
       } else {
-        MPU6050SetGyroBias(MPU6050_Y_AXIS, *offset);
+        MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
       }
       break;
     case DMP_CALIBRATE_GYRO_Z:
-      if (*sample == 0) {
-        *mode = DMP_CALIBRATE_ACC_X;
-        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, *offset);
+      if (sample == 0) {
+        eeprom_update_word((uint16_t*)EEPROM_GYRO_Z_OFFSET, offset);
+        offset = 0;
+        *mode = DMP_CALIBRATE_ACCELEROMETER_X;
+        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
       } else {
-        MPU6050SetGyroBias(MPU6050_Z_AXIS, *offset);
+        MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
       }
       break;
-    case DMP_CALIBRATE_ACC_X:
-      if (*sample == 0) {
-        *mode = DMP_CALIBRATE_ACC_Y;
-        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, *offset);
+    case DMP_CALIBRATE_ACCELEROMETER_X:
+      if (sample == 0) {
+        eeprom_update_word((uint16_t*)EEPROM_ACCELEROMETER_X_OFFSET, offset);
+        offset = 0;
+        *mode = DMP_CALIBRATE_ACCELEROMETER_Y;
+        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
       } else {
-        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, *offset);
+        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
       }
       break;
-    case DMP_CALIBRATE_ACC_Y:
-      if (*sample == 0) {
-        *mode = DMP_CALIBRATE_ACC_Z;
-        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, *offset);
+    case DMP_CALIBRATE_ACCELEROMETER_Y:
+      if (sample == 0) {
+        eeprom_update_word((uint16_t*)EEPROM_ACCELEROMETER_Y_OFFSET, offset);
+        offset = 0;
+        *mode = DMP_CALIBRATE_ACCELEROMETER_Z;
+        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
       } else {
-        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, *offset);
+        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
       }
       break;
-    case DMP_CALIBRATE_ACC_Z:
-      if (*sample == 16384) {
+    case DMP_CALIBRATE_ACCELEROMETER_Z:
+      if (sample == 16384) {
+        eeprom_update_word((uint16_t*)EEPROM_ACCELEROMETER_Z_OFFSET, offset);
+        offset = 0;
         *mode = DMP_CALIBRATE_DONE;
-        *offset = 0;
-        PORTB &= ~_BV(PORTB5);
+        PORTB &= ~_BV(PORTB5);  // Turn off green LED
       } else {
-        *offset -= sign(*sample - 16384);
-        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, *offset);
+        offset -= sign(sample - 16384);
+        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
       }
       break;
     default:
@@ -360,7 +352,7 @@ static inline float q0_squared(void)
 }
 
 // -----------------------------------------------------------------------------
-static inline int8_t sign(int32_t value)
+static inline int8_t sign(int16_t value)
 {
   if (value > 0) return 1;
   else if (value < 0) return -1;
@@ -457,4 +449,28 @@ int8_t DMPLoadFirmware(void)
     return -1;
 
   return 0;
+}
+
+// -----------------------------------------------------------------------------
+void DMPLoadOffsets()
+{
+  int16_t offset;
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_ACCELEROMETER_X_OFFSET);
+  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_ACCELEROMETER_Y_OFFSET);
+  MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_ACCELEROMETER_Z_OFFSET);
+  MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_GYRO_X_OFFSET);
+  MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_GYRO_Y_OFFSET);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
+
+  offset = eeprom_read_word((uint16_t*)EEPROM_GYRO_Z_OFFSET);
+  MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
 }
