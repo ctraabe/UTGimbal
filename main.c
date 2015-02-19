@@ -54,30 +54,6 @@ void UARTPrintS16(int16_t value)
 }
 
 // -----------------------------------------------------------------------------
-void Calibrate(void)
-{
-  // int16_t temp = dmp_accelerometer(0);
-  // int16_t temp = dmp_accelerometer(1);
-  // int16_t temp = dmp_accelerometer(2);
-  // int16_t temp = dmp_gyro(0);
-  int16_t temp = dmp_gyro(1);
-  // int16_t temp = dmp_gyro(2);
-
-  static int16_t offset = 0;
-  if (temp > 0) --offset;
-  else ++offset;
-
-  // MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
-  // MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
-  // MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
-  // MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
-  MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
-  // MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
-
-  UARTPrintS16(offset);
-}
-
-// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Initialization();
@@ -97,7 +73,15 @@ int16_t main(void)
       DMPReadFIFO();
       _status_MPU6050 = MPU6050_IDLE;
 
-      // Calibrate();
+      static enum DMPCalibrationMode dmp_calibrate_mode = DMP_CALIBRATE_START;
+      static int16_t offset = 0;
+      int16_t sample;
+      if (dmp_calibrate_mode) {
+        DMPCalibrate(&dmp_calibrate_mode, &offset, &sample);
+        // UARTPrintS16((int16_t)dmp_calibrate_mode);
+        // UARTPrintS16(offset);
+        UARTPrintS16(sample);
+      }
 
       // Position control
       float roll_p_command = dmp_roll_angle() * 0.025

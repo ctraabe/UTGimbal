@@ -33,7 +33,7 @@ enum MPU6050MemoryAccessMode {
 
 static float _dmp_quaternion[4] = {0.0}, _dmp_roll_angle = 0.0,
   _dmp_pitch_angle = 0.0, _dmp_yaw_angle = 0.0;
-static int16_t _dmp_acclerometer[3] = {0}, _dmp_gyro[3] = {0};
+static int16_t _dmp_accelerometer[3] = {0}, _dmp_gyro[3] = {0};
 static uint8_t _dmp_euler_angles = DMP_EULER_ANGLES_CLEAR;
 
 
@@ -41,9 +41,10 @@ static uint8_t _dmp_euler_angles = DMP_EULER_ANGLES_CLEAR;
 // Private function declarations:
 
 static inline float q0_squared(void);
+static inline int8_t sign(int32_t);
 static int8_t MPU6050AccessDMPMemory(uint16_t memory_address, uint8_t *buffer,
   uint8_t length, enum MPU6050MemoryAccessMode memory_access_mode);
-int8_t DMPLoadFirmware(void);
+static int8_t DMPLoadFirmware(void);
 
 
 // =============================================================================
@@ -55,7 +56,7 @@ float dmp_quaternion(uint8_t index)
 }
 int16_t dmp_accelerometer(uint8_t index)
 {
-  return _dmp_acclerometer[index];
+  return _dmp_accelerometer[index];
 }
 int16_t dmp_gyro(uint8_t index)
 {
@@ -231,8 +232,8 @@ enum MPU6050Error DMPReadFIFO(void)
 
   if (DMP_OUTPUT_ACCELEROMETER) {
     for (uint8_t i = 0; i < 3; i++) {
-      _dmp_acclerometer[i] = BigEndianArrayToS16(rx_buffer + 4 * sizeof(int32_t)
-        + i * sizeof(int16_t));
+      _dmp_accelerometer[i] = BigEndianArrayToS16(rx_buffer + 4
+        * sizeof(int32_t) + i * sizeof(int16_t));
     }
   }
 
@@ -245,6 +246,102 @@ enum MPU6050Error DMPReadFIFO(void)
   }
 
   return MPU6050_ERROR_NONE;
+}
+
+// -----------------------------------------------------------------------------
+void DMPCalibrate(enum DMPCalibrationMode* mode, int16_t* offset, int16_t *sample)
+{
+  PORTB ^= _BV(PORTB5);  // Green LED
+
+  switch(*mode) {
+    case DMP_CALIBRATE_GYRO_X:
+      *sample = _dmp_gyro[0];
+      break;
+    case DMP_CALIBRATE_GYRO_Y:
+      *sample = _dmp_gyro[1];
+      break;
+    case DMP_CALIBRATE_GYRO_Z:
+      *sample = _dmp_gyro[2];
+      break;
+    case DMP_CALIBRATE_ACC_X:
+      *sample = _dmp_accelerometer[0];
+      break;
+    case DMP_CALIBRATE_ACC_Y:
+      *sample = _dmp_accelerometer[1];
+      break;
+    case DMP_CALIBRATE_ACC_Z:
+      *sample = _dmp_accelerometer[2];
+      break;
+    default:
+      break;
+  }
+
+  if (*mode != DMP_CALIBRATE_ACC_Z) {
+    if (*sample == 0)
+      *offset = 0;
+    else
+      *offset -= sign(*sample);
+  }
+
+  switch(*mode) {
+    case DMP_CALIBRATE_START:
+      *mode = DMP_CALIBRATE_GYRO_X;
+      MPU6050SetGyroBias(MPU6050_X_AXIS, *offset);
+      break;
+    case DMP_CALIBRATE_GYRO_X:
+      if (*sample == 0) {
+        *mode = DMP_CALIBRATE_GYRO_Y;
+        MPU6050SetGyroBias(MPU6050_Y_AXIS, *offset);
+      } else {
+        MPU6050SetGyroBias(MPU6050_X_AXIS, *offset);
+      }
+      break;
+    case DMP_CALIBRATE_GYRO_Y:
+      if (*sample == 0) {
+        *mode = DMP_CALIBRATE_GYRO_Z;
+        MPU6050SetGyroBias(MPU6050_Z_AXIS, *offset);
+      } else {
+        MPU6050SetGyroBias(MPU6050_Y_AXIS, *offset);
+      }
+      break;
+    case DMP_CALIBRATE_GYRO_Z:
+      if (*sample == 0) {
+        *mode = DMP_CALIBRATE_ACC_X;
+        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, *offset);
+      } else {
+        MPU6050SetGyroBias(MPU6050_Z_AXIS, *offset);
+      }
+      break;
+    case DMP_CALIBRATE_ACC_X:
+      if (*sample == 0) {
+        *mode = DMP_CALIBRATE_ACC_Y;
+        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, *offset);
+      } else {
+        MPU6050SetAccelerometerBias(MPU6050_X_AXIS, *offset);
+      }
+      break;
+    case DMP_CALIBRATE_ACC_Y:
+      if (*sample == 0) {
+        *mode = DMP_CALIBRATE_ACC_Z;
+        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, *offset);
+      } else {
+        MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, *offset);
+      }
+      break;
+    case DMP_CALIBRATE_ACC_Z:
+      if (*sample == 16384) {
+        *mode = DMP_CALIBRATE_DONE;
+        *offset = 0;
+        PORTB &= ~_BV(PORTB5);
+      } else {
+        *offset -= sign(*sample - 16384);
+        MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, *offset);
+      }
+      break;
+    default:
+      *mode = DMP_CALIBRATE_DONE;
+      break;
+  }
 }
 
 
@@ -260,6 +357,14 @@ static inline float q0_squared(void)
   if (!(_dmp_euler_angles & (DMP_EULER_ANGLES_ROLL | DMP_EULER_ANGLES_YAW)))
     _q0_squared = _dmp_quaternion[0] * _dmp_quaternion[0];
   return _q0_squared;
+}
+
+// -----------------------------------------------------------------------------
+static inline int8_t sign(int32_t value)
+{
+  if (value > 0) return 1;
+  else if (value < 0) return -1;
+  else return 0;
 }
 
 // -----------------------------------------------------------------------------
