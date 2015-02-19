@@ -46,7 +46,7 @@ static void Initialization(void)
 }
 
 // -----------------------------------------------------------------------------
-void uart_ascii_s16(int16_t value)
+void UARTPrintS16(int16_t value)
 {
   uint8_t ascii[8] = { '0', '0', '0', '0', '0', '0', '\r', '\n' };
   PrintS16(value, ascii);
@@ -54,7 +54,7 @@ void uart_ascii_s16(int16_t value)
 }
 
 // -----------------------------------------------------------------------------
-void callibrate(void)
+void Calibrate(void)
 {
   // int16_t temp = dmp_accelerometer(0);
   // int16_t temp = dmp_accelerometer(1);
@@ -74,7 +74,7 @@ void callibrate(void)
   MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
   // MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
 
-  uart_ascii_s16(offset);
+  UARTPrintS16(offset);
 }
 
 // -----------------------------------------------------------------------------
@@ -97,27 +97,25 @@ int16_t main(void)
       DMPReadFIFO();
       _status_MPU6050 = MPU6050_IDLE;
 
-      // callibrate();
+      // Calibrate();
 
       // Position control
-      float roll_p_command = dmp_roll_angle() * 0.01
+      float roll_p_command = dmp_roll_angle() * 0.025
         * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_p_command = dmp_pitch_angle() * -0.01
+      float pitch_p_command = dmp_pitch_angle() * -0.025
         * RADIANS_TO_MOTOR_SEGMENTS;
 
       // Velocity control
-      float roll_v_command = (float)dmp_gyro(0) * 0.2 * DMP_GYRO_TO_RADPS
+      float roll_v_command = (float)dmp_gyro(0) * 0.8 * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
-      float pitch_v_command = (float)dmp_gyro(1) * -0.2 * DMP_GYRO_TO_RADPS
+      float pitch_v_command = (float)dmp_gyro(1) * -0.8 * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
 
       // Acceleration control
-      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * 0.02
+      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * 0.03
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * -0.02
+      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * -0.03
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
-
-      uart_ascii_s16((int16_t)roll_a_command);
 
       // MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + pitch_p_command),
       //   soft_start_shifter);
@@ -158,9 +156,9 @@ int16_t main(void)
         if (soft_start_shifter) --soft_start_shifter;
 
         if (BatteryIsLow())
-          PORTD ^= _BV(PORTD2);  // Toggle red LED
+          PORTD ^= _BV(PORTD2);  // Toggle buzzer
         else
-          PORTD &= ~_BV(PORTD2);  // Turn off red LED
+          PORTD &= ~_BV(PORTD2);  // Turn off buzzer
       }
       BatteryMeasureVoltage();
     }
