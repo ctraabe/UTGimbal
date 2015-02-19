@@ -103,16 +103,10 @@ int16_t main(void)
       dmp_gyro_pv[0] = dmp_gyro(0);
       dmp_gyro_pv[1] = dmp_gyro(1);
 
-      MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + roll_v_command
-        + roll_a_command + pitch_p_command + pitch_v_command + pitch_a_command),
+      MotorMove(MOTOR_ROLL, roll_p_command + roll_v_command + roll_a_command,
         soft_start_shifter);
-      MotorMove(MOTOR_PITCH, (int8_t)(roll_p_command + roll_v_command
-        + roll_a_command), soft_start_shifter);
-
-      // MotorMove(MOTOR_ROLL, roll_v_command, soft_start_shifter);
-      // MotorMove(MOTOR_PITCH, pitch_v_command - roll_v_command, soft_start_shifter);
-      MotorMove(MOTOR_ROLL, roll_p_command + roll_v_command + roll_a_command, soft_start_shifter);
-      MotorMove(MOTOR_PITCH, pitch_p_command + pitch_v_command + pitch_a_command - roll_p_command - roll_v_command - roll_a_command, soft_start_shifter);
+      MotorMove(MOTOR_PITCH, pitch_p_command + pitch_v_command + pitch_a_command
+        - roll_p_command - roll_v_command - roll_a_command, soft_start_shifter);
 
       // Yaw control law
       float yaw_p_command = dmp_yaw_angle() * 0.025
@@ -125,8 +119,7 @@ int16_t main(void)
       // Save past values
       dmp_gyro_pv[2] = dmp_gyro(2);
 
-      yaw_message.command = -(int8_t)yaw_p_command + yaw_v_command
-        + yaw_a_command;
+      yaw_message.command = -yaw_p_command + yaw_v_command + yaw_a_command;
       I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
 
       // Check for frame overrun (turn on green LED)
