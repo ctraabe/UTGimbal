@@ -46,10 +46,43 @@ static void Initialization(void)
 }
 
 // -----------------------------------------------------------------------------
+void uart_ascii_s16(int16_t value)
+{
+  uint8_t ascii[8] = { '0', '0', '0', '0', '0', '0', '\r', '\n' };
+  PrintS16(value, ascii);
+  UARTTxBytes(ascii, 8);
+}
+
+// -----------------------------------------------------------------------------
+void callibrate(void)
+{
+  // int16_t temp = dmp_accelerometer(0);
+  // int16_t temp = dmp_accelerometer(1);
+  // int16_t temp = dmp_accelerometer(2);
+  // int16_t temp = dmp_gyro(0);
+  int16_t temp = dmp_gyro(1);
+  // int16_t temp = dmp_gyro(2);
+
+  static int16_t offset = 0;
+  if (temp > 0) --offset;
+  else ++offset;
+
+  // MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
+  // MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
+  // MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
+  // MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
+  MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
+  // MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
+
+  uart_ascii_s16(offset);
+}
+
+// -----------------------------------------------------------------------------
 int16_t main(void)
 {
   Initialization();
 
+  int16_t dmp_gyro_pv[3] = {0};
   uint8_t soft_start_shifter = 4;
 
   union
@@ -64,17 +97,37 @@ int16_t main(void)
       DMPReadFIFO();
       _status_MPU6050 = MPU6050_IDLE;
 
-      // Pitch control law
-      float pitch_p_command = dmp_roll_angle() * P_GAIN
+      // callibrate();
+
+      // Position control
+      float roll_p_command = dmp_roll_angle() * 0.01
+        * RADIANS_TO_MOTOR_SEGMENTS;
+      float pitch_p_command = dmp_pitch_angle() * -0.01
         * RADIANS_TO_MOTOR_SEGMENTS;
 
-      // Roll control law
-      float roll_p_command = dmp_pitch_angle() * P_GAIN
-        * RADIANS_TO_MOTOR_SEGMENTS;
+      // Velocity control
+      float roll_v_command = (float)dmp_gyro(0) * 0.2 * DMP_GYRO_TO_RADPS
+        * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
+      float pitch_v_command = (float)dmp_gyro(1) * -0.2 * DMP_GYRO_TO_RADPS
+        * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
 
-      MotorMove(MOTOR_ROLL, (int8_t)(pitch_p_command - roll_p_command),
+      // Acceleration control
+      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * 0.02
+        * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
+      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * -0.02
+        * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
+
+      uart_ascii_s16((int16_t)roll_a_command);
+
+      // MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + pitch_p_command),
+      //   soft_start_shifter);
+      // MotorMove(MOTOR_PITCH, (int8_t)pitch_p_command, soft_start_shifter);
+
+      MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + roll_v_command
+        + roll_a_command + pitch_p_command + pitch_v_command + pitch_a_command),
         soft_start_shifter);
-      MotorMove(MOTOR_PITCH, -(int8_t)roll_p_command, soft_start_shifter);
+      MotorMove(MOTOR_PITCH, (int8_t)(pitch_p_command + pitch_v_command
+        + pitch_a_command), soft_start_shifter);
 
       // Yaw control law (this could be moved to the yaw control unit)
       float yaw_p_command = dmp_yaw_angle() * P_GAIN
@@ -82,6 +135,11 @@ int16_t main(void)
 
       yaw_message.command = -(int8_t)yaw_p_command;
       I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
+
+      // Save past values
+      dmp_gyro_pv[0] = dmp_gyro(0);
+      dmp_gyro_pv[1] = dmp_gyro(1);
+      dmp_gyro_pv[2] = dmp_gyro(2);
 
       // Check for frame overrun (turn on green LED)
       if (_status_MPU6050 == MPU6050_DATA_WAITING) {
@@ -107,36 +165,6 @@ int16_t main(void)
       BatteryMeasureVoltage();
     }
   }
-}
-
-void callibrate(void)
-{
-  uint8_t message[8] = { '0', '0', '0', '0', '0', '0', '\r', '\n' };
-
-  int16_t temp = dmp_accelerometer(0);
-  // int16_t temp = dmp_accelerometer(1);
-  // int16_t temp = dmp_accelerometer(2);
-  // int16_t temp = dmp_gyro(0);
-  // int16_t temp = dmp_gyro(1);
-  // int16_t temp = dmp_gyro(2);
-
-  static int16_t offset = 0;
-  PrintS16(offset, message);
-  if (temp > 0) --offset;
-  else ++offset;
-
-  MPU6050SetAccelerometerBias(MPU6050_X_AXIS, offset);
-  // MPU6050SetAccelerometerBias(MPU6050_Y_AXIS, offset);
-  // MPU6050SetAccelerometerBias(MPU6050_Z_AXIS, offset);
-  // MPU6050SetGyroBias(MPU6050_X_AXIS, offset);
-  // MPU6050SetGyroBias(MPU6050_Y_AXIS, offset);
-  // MPU6050SetGyroBias(MPU6050_Z_AXIS, offset);
-
-  // PrintS16((int16_t)(dmp_pitch_angle() * RAD_2_DEG), message);
-  // PrintS16((int16_t)(dmp_roll_angle() * RAD_2_DEG), message);
-  // PrintS16((int16_t)(dmp_yaw_angle() * RAD_2_DEG), message);
-
-  UARTTxBytes(message, 8);
 }
 
 // -----------------------------------------------------------------------------

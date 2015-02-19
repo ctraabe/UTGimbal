@@ -3,7 +3,7 @@
 
 #include <inttypes.h>
 
-#define P_GAIN (0.05)
+#define P_GAIN (0.01)
 #define RAD_2_DEG (180.0 / M_PI)
 
 #define I2C_SPEED (400000L)
