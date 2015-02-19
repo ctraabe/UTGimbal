@@ -60,7 +60,6 @@ int16_t main(void)
 {
   Initialization();
 
-  int16_t dmp_gyro_pv[3] = {0};
   uint8_t soft_start_shifter = 4;
 
   union
@@ -80,36 +79,41 @@ int16_t main(void)
         DMPCalibrate(&dmp_calibrate_mode);
       }
 */
-      // UARTPrintS16(eeprom_read_word((uint16_t*)EEPROM_GYRO_Z_OFFSET));
-      UARTPrintS16(dmp_gyro(0));
 
       // Position control
-      float roll_p_command = dmp_roll_angle() * 0.025
+      float roll_p_command = dmp_roll_angle() * -0.025
         * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_p_command = dmp_pitch_angle() * -0.025
+      float pitch_p_command = dmp_pitch_angle() * 0.025
         * RADIANS_TO_MOTOR_SEGMENTS;
 
       // Velocity control
-      float roll_v_command = (float)dmp_gyro(0) * 0.8 * DMP_GYRO_TO_RADPS
+      float roll_v_command = (float)dmp_gyro(0) * -0.8 * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
-      float pitch_v_command = (float)dmp_gyro(1) * -0.8 * DMP_GYRO_TO_RADPS
+      float pitch_v_command = (float)dmp_gyro(1) * 0.8 * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
 
       // Acceleration control
-      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * 0.03
+      static int16_t dmp_gyro_pv[3] = {0};
+      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * -0.025
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * -0.03
+      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * 0.025
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
 
-      // MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + pitch_p_command),
-      //   soft_start_shifter);
-      // MotorMove(MOTOR_PITCH, (int8_t)pitch_p_command, soft_start_shifter);
+      // Save past values
+      dmp_gyro_pv[0] = dmp_gyro(0);
+      dmp_gyro_pv[1] = dmp_gyro(1);
+      dmp_gyro_pv[2] = dmp_gyro(2);
 
       MotorMove(MOTOR_ROLL, (int8_t)(roll_p_command + roll_v_command
         + roll_a_command + pitch_p_command + pitch_v_command + pitch_a_command),
         soft_start_shifter);
-      MotorMove(MOTOR_PITCH, (int8_t)(pitch_p_command + pitch_v_command
-        + pitch_a_command), soft_start_shifter);
+      MotorMove(MOTOR_PITCH, (int8_t)(roll_p_command + roll_v_command
+        + roll_a_command), soft_start_shifter);
+
+      // MotorMove(MOTOR_ROLL, roll_v_command, soft_start_shifter);
+      // MotorMove(MOTOR_PITCH, pitch_v_command - roll_v_command, soft_start_shifter);
+      MotorMove(MOTOR_ROLL, roll_p_command + roll_v_command + roll_a_command, soft_start_shifter);
+      MotorMove(MOTOR_PITCH, pitch_p_command + pitch_v_command + pitch_a_command - roll_p_command - roll_v_command - roll_a_command, soft_start_shifter);
 
       // Yaw control law (this could be moved to the yaw control unit)
       float yaw_p_command = dmp_yaw_angle() * P_GAIN
@@ -117,11 +121,6 @@ int16_t main(void)
 
       yaw_message.command = -(int8_t)yaw_p_command;
       I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
-
-      // Save past values
-      dmp_gyro_pv[0] = dmp_gyro(0);
-      dmp_gyro_pv[1] = dmp_gyro(1);
-      dmp_gyro_pv[2] = dmp_gyro(2);
 
       // Check for frame overrun (turn on green LED)
       if (_status_MPU6050 == MPU6050_DATA_WAITING) {
