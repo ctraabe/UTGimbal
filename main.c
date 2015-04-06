@@ -81,22 +81,27 @@ int16_t main(void)
 */
 
       // Position control
-      float roll_p_command = dmp_roll_angle() * -0.025
+      // const float kP = 0.025;
+      const float kP = 0.015;
+      float roll_p_command = dmp_roll_angle() * -kP
         * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_p_command = dmp_pitch_angle() * 0.025
+      float pitch_p_command = dmp_pitch_angle() * kP
         * RADIANS_TO_MOTOR_SEGMENTS;
 
       // Velocity control
-      float roll_v_command = (float)dmp_gyro(0) * -0.8 * DMP_GYRO_TO_RADPS
+      const float kV = 0.3;
+      float roll_v_command = (float)dmp_gyro(0) * -kV * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
-      float pitch_v_command = (float)dmp_gyro(1) * 0.8 * DMP_GYRO_TO_RADPS
+      float pitch_v_command = (float)dmp_gyro(1) * kV * DMP_GYRO_TO_RADPS
         * RADIANS_TO_MOTOR_SEGMENTS * DMP_SAMPLE_TIME;
 
       // Acceleration control
+      // const float kA = 0.025;
+      const float kA = 0.00;
       static int16_t dmp_gyro_pv[3] = {0};
-      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * -0.025
+      float roll_a_command = (float)(dmp_gyro(0) - dmp_gyro_pv[0]) * -kA
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
-      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * 0.025
+      float pitch_a_command = (float)(dmp_gyro(1) - dmp_gyro_pv[1]) * kA
         * DMP_GYRO_TO_RADPS * RADIANS_TO_MOTOR_SEGMENTS;
 
       // Save past values
