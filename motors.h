@@ -11,6 +11,7 @@
 #define GEARING (1.0)
 #define RADIANS_TO_MOTOR_SEGMENTS ((float)(ROTOR_POLES * SINE_TABLE_LENGTH)\
   / (2.0 * M_PI) / GEARING)
+#define MOTOR_COMMAND_LIMIT (2.0 * M_PI / ROTOR_POLES)
 
 #define YAW_CONTROLLER_ADDRESS (0x40 << 1)
 #define YAW_ROTOR_POLES (7)
@@ -19,14 +20,16 @@
   * SINE_TABLE_LENGTH) / (2.0 * M_PI) / YAW_GEARING)
 
 enum Motors {
-  MOTOR_A = 0,
-  MOTOR_B,
+  MOTOR_YAW = 0,
+  MOTOR_A,
+  MOTOR_B
 };
 
 void MotorPWMTimersInit(void);
 
-void MotorAngle(enum Motors motor, float angle, uint8_t shift);
+void MotorSetAngle(enum Motors motor, float angle, uint8_t shift);
 void MotorMove(enum Motors motor, int8_t segments, uint8_t shift);
 void MotorMoveToAngle(enum Motors motor, float angle);
+void MotorsKill(void);
 
 #endif //_MOTORS_H

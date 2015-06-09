@@ -3,6 +3,8 @@
 #include <avr/io.h>
 #include <avr/pgmspace.h>
 
+#include "i2c.h"
+
 
 // =============================================================================
 // Private data:
@@ -24,20 +26,20 @@ const uint8_t sin_table_[SINE_TABLE_LENGTH/4] PROGMEM = {
 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255
 };
-static int16_t magnetic_field_direction_[NUMBER_OF_MOTORS] = {0};
-static int8_t magnetic_field_rotations_[NUMBER_OF_MOTORS] = {0};
 
 
 // =============================================================================
 // Private function declarations:
 
-static void MoveToPosition(enum Motors motor, uint8_t shift);
+static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift);
+static void SegmentToYawDeltaCommand(int16_t segment);
 
 
 // =============================================================================
 // Public functions:
 
-void MotorPWMTimersInit(void) {
+void MotorPWMTimersInit(void)
+{
   // Clear the output compare registers
   OCR0A = 0;  // OC0A is pin D6
   OCR0B = 0;  // OC0B is pin D5
@@ -63,65 +65,63 @@ void MotorPWMTimersInit(void) {
 }
 
 // -----------------------------------------------------------------------------
-void MotorAngle(enum Motors motor, float angle, uint8_t shift)
+void MotorSetAngle(enum Motors motor, float angle, uint8_t shift)
 {
-  angle *= RADIANS_TO_MOTOR_SEGMENTS;
+  if (motor != MOTOR_YAW)
+    angle *= RADIANS_TO_MOTOR_SEGMENTS;
+  else
+    angle *= YAW_RADIANS_TO_MOTOR_SEGMENTS;
+
   int16_t segment = angle < 0. ? (int16_t)(angle - .5) : (int16_t)(angle + .5);
 
-  while (segment > SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
-  while (segment < 0) segment += SINE_TABLE_LENGTH;
-
-  magnetic_field_direction_[motor] = segment;
-
-  MoveToPosition(motor, shift);
+  if (motor != MOTOR_YAW)
+    MoveToPosition(motor, segment, shift);
+  else
+    SegmentToYawDeltaCommand(segment);
 }
 
 // -----------------------------------------------------------------------------
-void MotorMove(enum Motors motor, int8_t segments, uint8_t shift)
+void MotorsKill(void)
 {
-  magnetic_field_direction_[motor] += segments;
-  if (magnetic_field_direction_[motor] < 0)
-  {
-    magnetic_field_direction_[motor] += SINE_TABLE_LENGTH;
-    --magnetic_field_rotations_[motor];
-  }
-  else if (magnetic_field_direction_[motor] >= SINE_TABLE_LENGTH)
-  {
-    magnetic_field_direction_[motor] -= SINE_TABLE_LENGTH;
-    ++magnetic_field_rotations_[motor];
-  }
-
-  MoveToPosition(motor, shift);
+  OCR1A = 0;
+  OCR1B = 0;
+  OCR2A = 0;
+  OCR2B = 0;
+  OCR0B = 0;
+  OCR0A = 0;
 }
 
 
 // =============================================================================
 // Private functions:
 
-static void MoveToPosition(enum Motors motor, uint8_t shift) {
-  int16_t index = magnetic_field_direction_[motor];
+static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift)
+{
   uint8_t stator_pwm[3] = {0};
+
+  while (segment > SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
+  while (segment < 0) segment += SINE_TABLE_LENGTH;
 
   uint8_t i = 2;
   for (;;)
   {
-    if (index >= SINE_TABLE_LENGTH * 3 / 4)
+    if (segment >= SINE_TABLE_LENGTH * 3 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH - index - 1]));
-    else if (index >= SINE_TABLE_LENGTH * 2 / 4)
+        = 255 - pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH - segment - 1]));
+    else if (segment >= SINE_TABLE_LENGTH * 2 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table_[index - SINE_TABLE_LENGTH / 2]));
-    else if (index >= SINE_TABLE_LENGTH * 1 / 4)
+        = 255 - pgm_read_byte(&(sin_table_[segment - SINE_TABLE_LENGTH / 2]));
+    else if (segment >= SINE_TABLE_LENGTH * 1 / 4)
       stator_pwm[i]
-        = pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH / 2 - index - 1]));
-    else // (index >= SINE_TABLE_LENGTH * 0 / 4)
-      stator_pwm[i] = pgm_read_byte(&(sin_table_[index]));
+        = pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH / 2 - segment - 1]));
+    else // (segment >= SINE_TABLE_LENGTH * 0 / 4)
+      stator_pwm[i] = pgm_read_byte(&(sin_table_[segment]));
 
     if (!i--)
       break;  // Quit this loop after i == 0
 
-    index += SINE_TABLE_LENGTH * 1 / 3;
-    if (index >= SINE_TABLE_LENGTH) index -= SINE_TABLE_LENGTH;
+    segment += SINE_TABLE_LENGTH * 1 / 3;
+    if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   }
 
   if (shift)
@@ -143,4 +143,26 @@ static void MoveToPosition(enum Motors motor, uint8_t shift) {
     OCR0B = stator_pwm[1];
     OCR0A = stator_pwm[2];
   }
+}
+
+// -----------------------------------------------------------------------------
+static void SegmentToYawDeltaCommand(int16_t segment)
+{
+  static int16_t segment_pv = 0;
+  int16_t delta = segment - segment_pv;
+  segment_pv = segment;
+
+  union {
+    int8_t command;
+    uint8_t byte;
+  } yaw_message;
+
+  if (delta > 127)
+    yaw_message.command = 127;
+  else if (delta < -127)
+    yaw_message.command = -127;
+  else
+    yaw_message.command = delta;
+
+  I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
 }
