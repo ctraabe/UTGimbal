@@ -19,12 +19,13 @@
   * SINE_TABLE_LENGTH) / (2.0 * M_PI) / YAW_GEARING)
 
 enum Motors {
-  MOTOR_ROLL = 0,
-  MOTOR_PITCH,
+  MOTOR_A = 0,
+  MOTOR_B,
 };
 
 void MotorPWMTimersInit(void);
 
+void MotorAngle(enum Motors motor, float angle, uint8_t shift);
 void MotorMove(enum Motors motor, int8_t segments, uint8_t shift);
 void MotorMoveToAngle(enum Motors motor, float angle);
 

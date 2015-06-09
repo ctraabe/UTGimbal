@@ -7,7 +7,7 @@
 // =============================================================================
 // Private data:
 
-const uint8_t sin_table[SINE_TABLE_LENGTH/4] PROGMEM = {
+const uint8_t sin_table_[SINE_TABLE_LENGTH/4] PROGMEM = {
 128, 129, 130, 131, 132, 132, 133, 134, 135, 136, 137, 138, 139, 139, 140, 141,
 142, 143, 144, 145, 146, 147, 147, 148, 149, 150, 151, 152, 153, 154, 154, 155,
 156, 157, 158, 159, 160, 160, 161, 162, 163, 164, 165, 166, 166, 167, 168, 169,
@@ -24,8 +24,8 @@ const uint8_t sin_table[SINE_TABLE_LENGTH/4] PROGMEM = {
 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255
 };
-static int16_t magnetic_field_direction[NUMBER_OF_MOTORS] = {0};
-static int8_t magnetic_field_rotations[NUMBER_OF_MOTORS] = {0};
+static int16_t magnetic_field_direction_[NUMBER_OF_MOTORS] = {0};
+static int8_t magnetic_field_rotations_[NUMBER_OF_MOTORS] = {0};
 
 
 // =============================================================================
@@ -62,18 +62,33 @@ void MotorPWMTimersInit(void) {
   TCCR2B = _BV(CS20);
 }
 
+// -----------------------------------------------------------------------------
+void MotorAngle(enum Motors motor, float angle, uint8_t shift)
+{
+  angle *= RADIANS_TO_MOTOR_SEGMENTS;
+  int16_t segment = angle < 0. ? (int16_t)(angle - .5) : (int16_t)(angle + .5);
+
+  while (segment > SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
+  while (segment < 0) segment += SINE_TABLE_LENGTH;
+
+  magnetic_field_direction_[motor] = segment;
+
+  MoveToPosition(motor, shift);
+}
+
+// -----------------------------------------------------------------------------
 void MotorMove(enum Motors motor, int8_t segments, uint8_t shift)
 {
-  magnetic_field_direction[motor] += segments;
-  if (magnetic_field_direction[motor] < 0)
+  magnetic_field_direction_[motor] += segments;
+  if (magnetic_field_direction_[motor] < 0)
   {
-    magnetic_field_direction[motor] += SINE_TABLE_LENGTH;
-    --magnetic_field_rotations[motor];
+    magnetic_field_direction_[motor] += SINE_TABLE_LENGTH;
+    --magnetic_field_rotations_[motor];
   }
-  else if (magnetic_field_direction[motor] >= SINE_TABLE_LENGTH)
+  else if (magnetic_field_direction_[motor] >= SINE_TABLE_LENGTH)
   {
-    magnetic_field_direction[motor] -= SINE_TABLE_LENGTH;
-    ++magnetic_field_rotations[motor];
+    magnetic_field_direction_[motor] -= SINE_TABLE_LENGTH;
+    ++magnetic_field_rotations_[motor];
   }
 
   MoveToPosition(motor, shift);
@@ -84,7 +99,7 @@ void MotorMove(enum Motors motor, int8_t segments, uint8_t shift)
 // Private functions:
 
 static void MoveToPosition(enum Motors motor, uint8_t shift) {
-  int16_t index = magnetic_field_direction[motor];
+  int16_t index = magnetic_field_direction_[motor];
   uint8_t stator_pwm[3] = {0};
 
   uint8_t i = 2;
@@ -92,15 +107,15 @@ static void MoveToPosition(enum Motors motor, uint8_t shift) {
   {
     if (index >= SINE_TABLE_LENGTH * 3 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH - index - 1]));
+        = 255 - pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH - index - 1]));
     else if (index >= SINE_TABLE_LENGTH * 2 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table[index - SINE_TABLE_LENGTH / 2]));
+        = 255 - pgm_read_byte(&(sin_table_[index - SINE_TABLE_LENGTH / 2]));
     else if (index >= SINE_TABLE_LENGTH * 1 / 4)
       stator_pwm[i]
-        = pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH / 2 - index - 1]));
+        = pgm_read_byte(&(sin_table_[SINE_TABLE_LENGTH / 2 - index - 1]));
     else // (index >= SINE_TABLE_LENGTH * 0 / 4)
-      stator_pwm[i] = pgm_read_byte(&(sin_table[index]));
+      stator_pwm[i] = pgm_read_byte(&(sin_table_[index]));
 
     if (!i--)
       break;  // Quit this loop after i == 0
@@ -109,16 +124,23 @@ static void MoveToPosition(enum Motors motor, uint8_t shift) {
     if (index >= SINE_TABLE_LENGTH) index -= SINE_TABLE_LENGTH;
   }
 
-  if (motor == MOTOR_ROLL)
+  if (shift)
   {
-    OCR1A = stator_pwm[0] >> shift;
-    OCR1B = stator_pwm[1] >> shift;
-    OCR2A = stator_pwm[2] >> shift;
+    stator_pwm[0] >>= shift;
+    stator_pwm[1] >>= shift;
+    stator_pwm[2] >>= shift;
+  }
+
+  if (motor == MOTOR_A)
+  {
+    OCR1A = stator_pwm[0];
+    OCR1B = stator_pwm[1];
+    OCR2A = stator_pwm[2];
   }
   else
   {
-    OCR2B = stator_pwm[0] >> shift;
-    OCR0B = stator_pwm[1] >> shift;
-    OCR0A = stator_pwm[2] >> shift;
+    OCR2B = stator_pwm[0];
+    OCR0B = stator_pwm[1];
+    OCR0A = stator_pwm[2];
   }
 }

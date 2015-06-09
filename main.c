@@ -61,25 +61,26 @@ int16_t main(void)
   Initialization();
 
   uint8_t soft_start_shifter = 4;
-
+/*
   union
   {
     int8_t command;
     uint8_t byte;
   } yaw_message;
-
+*/
   // Main loop
   for (;;) {  // Preferred over while(1)
     if (_status_MPU6050 == MPU6050_DATA_WAITING) {
       DMPReadFIFO();
       _status_MPU6050 = MPU6050_IDLE;
+
 /*
       static enum DMPCalibrationMode dmp_calibrate_mode = DMP_CALIBRATE_START;
       if (dmp_calibrate_mode) {
         DMPCalibrate(&dmp_calibrate_mode);
       }
 */
-
+/*
       // Position control
       // const float kP = 0.025;
       const float kP = 0.015;
@@ -108,9 +109,9 @@ int16_t main(void)
       dmp_gyro_pv[0] = dmp_gyro(0);
       dmp_gyro_pv[1] = dmp_gyro(1);
 
-      MotorMove(MOTOR_ROLL, roll_p_command + roll_v_command + roll_a_command,
+      MotorMove(MOTOR_A, roll_p_command + roll_v_command + roll_a_command,
         soft_start_shifter);
-      MotorMove(MOTOR_PITCH, pitch_p_command + pitch_v_command + pitch_a_command
+      MotorMove(MOTOR_B, pitch_p_command + pitch_v_command + pitch_a_command
         - roll_p_command - roll_v_command - roll_a_command, soft_start_shifter);
 
       // Yaw control law
@@ -126,6 +127,39 @@ int16_t main(void)
 
       yaw_message.command = -yaw_p_command + yaw_v_command + yaw_a_command;
       I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
+*/
+
+      float p = (float)dmp_gyro(0) * DMP_GYRO_TO_RADPS;
+      float q = (float)dmp_gyro(1) * DMP_GYRO_TO_RADPS;
+
+      float phi = dmp_roll_angle();
+      float tht = dmp_pitch_angle();
+
+      static float phi_int = 0.0, tht_int = 0.0;
+      phi_int += phi * DMP_SAMPLE_TIME;
+      tht_int += tht * DMP_SAMPLE_TIME;
+
+      float motor_a = -0.037588 * p
+        + 0.030793 * q
+        + -0.56192 * phi
+        + 0.48222 * tht
+        + -9.9607 * phi_int
+        + 4.559 * tht_int;
+      float motor_b = 0.0048041 * p
+        + 0.040965 * q
+        + -0.049835 * phi
+        + 0.56766 * tht
+        + 4.559 * phi_int
+        + 9.9607 * tht_int;
+
+/*
+      static float motor_a = 0., motor_b = 0.;
+      motor_a += 0 / RADIANS_TO_MOTOR_SEGMENTS;
+      motor_b += 1 / RADIANS_TO_MOTOR_SEGMENTS;
+*/
+
+      MotorAngle(MOTOR_A, motor_a, soft_start_shifter);
+      MotorAngle(MOTOR_B, motor_b, soft_start_shifter);
 
       // Check for frame overrun (turn on green LED)
       if (_status_MPU6050 == MPU6050_DATA_WAITING) {
@@ -140,6 +174,8 @@ int16_t main(void)
       if (!--seconds_counter) {
         seconds_counter = 125;
         // PORTB ^= _BV(PORTB5);  // Green LED Heartbeat
+
+        // UARTPrintf("%f", (float)dmp_gyro(1) * DMP_GYRO_TO_RADPS);
 
         if (soft_start_shifter) --soft_start_shifter;
 
