@@ -8,7 +8,7 @@ CCFLAGS   = -std=gnu99 -Wstrict-prototypes
 CPPFLAGS  = -std=c++11 -fno-exceptions
 LSTFLAGS  = -Wa,-adhlns=$(addprefix $(BUILD_PATH)/,$(addsuffix .lst, $<))
 LDFLAGS   = -Ofast -pedantic -Werror -Wall -Wextra \
-            -Wundef -fshort-enums -ffreestanding -Wl,--relax
+            -Wundef -fshort-enums -ffreestanding -Wl,--relax,--gc-sections,-u,vfprintf -lprintf_flt
 ALLFLAGS  = -mmcu=$(MCU) -DF_CPU="$(F_CPU)"
 
 CC     := avr-gcc

@@ -1,5 +1,6 @@
 #include "uart.h"
 
+#include <stdio.h>
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
@@ -8,12 +9,14 @@
 // Private data:
 
 #define RX_BUFFER_LENGTH (32)
+#define TX_BUFFER_LENGTH (103)  // 100 chars + 2 newline chars + null terminator
 
 volatile uint8_t rx_byte_ = 0,
   rx_length_ = 0,
   tx_source_len_ = 0,
   rx_buffer_[RX_BUFFER_LENGTH],
   *tx_source_ptr_ = 0;
+static char tx_buffer_[TX_BUFFER_LENGTH];
 
 
 // =============================================================================
@@ -98,6 +101,31 @@ ISR(USART_UDRE_vect)
     // be disabled after the final transmission.
     UCSR0B &= ~_BV(UDRIE0);
   }
+}
+
+// -----------------------------------------------------------------------------
+// This function acts like printf, but puts the result on the UART stream. It
+// also adds the end-of-line characters and checks that the character buffer is
+// not exceeded. Note that this function is blocking.
+void UARTPrintf_P(const char *format, ...)
+{
+  va_list arglist;
+  va_start(arglist, format);
+  int length = vsnprintf_P(tx_buffer_, 101, format, arglist);
+  va_end(arglist);
+
+  if (length < 101)
+  {
+    sprintf_P(&tx_buffer_[length], PSTR("\n\r"));
+    length += 2;
+  }
+  else
+  {
+    sprintf_P(&tx_buffer_[80], PSTR("... MESSAGE TOO LONG\n\r"));
+    length = 103;
+  }
+
+  UARTTxBytes((uint8_t *)tx_buffer_, length);
 }
 
 // -----------------------------------------------------------------------------
