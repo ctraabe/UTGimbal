@@ -6,7 +6,7 @@
 // =============================================================================
 // Private data:
 
-const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
+const uint8_t sin_table[SINE_TABLE_LENGTH/4] PROGMEM = {
 128, 129, 130, 131, 132, 132, 133, 134, 135, 136, 137, 138, 139, 139, 140, 141,
 142, 143, 144, 145, 146, 147, 147, 148, 149, 150, 151, 152, 153, 154, 154, 155,
 156, 157, 158, 159, 160, 160, 161, 162, 163, 164, 165, 166, 166, 167, 168, 169,
@@ -23,14 +23,6 @@ const uint8_t sin_table[SINE_TABLE_LENGTH] PROGMEM = {
 254, 254, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 255
 };
-static int16_t magnetic_field_direction_ = SINE_TABLE_LENGTH / 2;
-static int8_t magnetic_field_rotations_ = 0;
-
-
-// =============================================================================
-// Private function declarations:
-
-static void MoveToPosition(uint8_t shift);
 
 
 // =============================================================================
@@ -56,55 +48,34 @@ void MotorPWMTimerInit(void) {
 }
 
 // -----------------------------------------------------------------------------
-void MotorMove(int8_t segments, uint8_t shift)
+void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift)
 {
-  magnetic_field_direction_ += segments;
-  if (magnetic_field_direction_ < 0)
-  {
-    magnetic_field_direction_ += SINE_TABLE_LENGTH;
-    --magnetic_field_rotations_;
-  }
-  else if (magnetic_field_direction_ >= SINE_TABLE_LENGTH)
-  {
-    magnetic_field_direction_ -= SINE_TABLE_LENGTH;
-    ++magnetic_field_rotations_;
-  }
+  static int16_t magnetic_field_direction = 0;
+  magnetic_field_direction += delta_segments;
+  if (magnetic_field_direction > SINE_TABLE_LENGTH)
+    magnetic_field_direction -= SINE_TABLE_LENGTH;
 
-  MoveToPosition(shift);
-}
-
-// -----------------------------------------------------------------------------
-int8_t magnetic_field_rotations(void) {
-  return magnetic_field_rotations_;
-}
-
-// =============================================================================
-// Private functions:
-
-static void MoveToPosition(uint8_t shift) {
-  int16_t index = magnetic_field_direction_;
-  uint8_t stator_pwm[3] = {0};
-
-  uint8_t i = 2;
+  int16_t segment = magnetic_field_direction;
+  uint8_t stator_pwm[3] = {0}, i = 2;
   for (;;)
   {
-    if (index >= SINE_TABLE_LENGTH * 3 / 4)
+    if (segment >= SINE_TABLE_LENGTH * 3 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH - index - 1]));
-    else if (index >= SINE_TABLE_LENGTH * 2 / 4)
+        = 255 - pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH - segment - 1]));
+    else if (segment >= SINE_TABLE_LENGTH * 2 / 4)
       stator_pwm[i]
-        = 255 - pgm_read_byte(&(sin_table[index - SINE_TABLE_LENGTH / 2]));
-    else if (index >= SINE_TABLE_LENGTH * 1 / 4)
+        = 255 - pgm_read_byte(&(sin_table[segment - SINE_TABLE_LENGTH / 2]));
+    else if (segment >= SINE_TABLE_LENGTH * 1 / 4)
       stator_pwm[i]
-        = pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH / 2 - index - 1]));
-    else // (index >= SINE_TABLE_LENGTH * 0 / 4)
-      stator_pwm[i] = pgm_read_byte(&(sin_table[index]));
+        = pgm_read_byte(&(sin_table[SINE_TABLE_LENGTH / 2 - segment - 1]));
+    else // (segment >= SINE_TABLE_LENGTH * 0 / 4)
+      stator_pwm[i] = pgm_read_byte(&(sin_table[segment]));
 
     if (!i--)
       break;  // Quit this loop after i == 0
 
-    index += SINE_TABLE_LENGTH * 1 / 3;
-    if (index >= SINE_TABLE_LENGTH) index -= SINE_TABLE_LENGTH;
+    segment += SINE_TABLE_LENGTH * 1 / 3;
+    if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   }
 
   OCR1A = stator_pwm[0] >> shift;  // OC1A is pin B0

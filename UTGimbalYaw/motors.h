@@ -13,8 +13,6 @@
 
 void MotorPWMTimerInit(void);
 
-void MotorMove(int8_t segments, uint8_t shift);
-void MotorMoveToAngle(float angle);
-int8_t magnetic_field_rotations(void);
+void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift);
 
 #endif //_MOTORS_H

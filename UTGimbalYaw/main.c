@@ -40,12 +40,20 @@ int16_t main(void)
   {
     while (!I2CDataIncoming()) continue;
     while (!I2CDataInBuffer()) continue;
-    MotorMove(I2CPeek() - magnetic_field_rotations(), soft_start_shifter);
+
+    union {
+      int8_t command;
+      uint8_t byte;
+    } yaw_message;
+    yaw_message.byte = I2CPeek();
+    if (yaw_message.command == 0) PORTA ^= _BV(PORTA4);
+
+    MotorMoveDeltaSegments(yaw_message.command, soft_start_shifter);
 
     if (CheckDelay(stopwatch))
     {
-      stopwatch += 1000;
-      PORTA ^= _BV(PORTA4);
+      stopwatch += 500;
+      // PORTA ^= _BV(PORTA4);
 
       if (soft_start_shifter) --soft_start_shifter;
     }
