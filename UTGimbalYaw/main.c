@@ -34,7 +34,7 @@ int16_t main(void)
   uint8_t soft_start_shifter = 4;
 
   // Main loop
-  uint16_t stopwatch = GetDelay(0);
+  uint16_t stopwatch = SetDelay(1000);
   PORTA |= _BV(PORTA4);
   for (;;)
   {
@@ -50,7 +50,7 @@ int16_t main(void)
 
     if (CheckDelay(stopwatch))
     {
-      stopwatch += 500;
+      stopwatch += 1000;
       PORTA ^= _BV(PORTA4);
 
       if (soft_start_shifter) --soft_start_shifter;
