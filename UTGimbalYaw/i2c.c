@@ -124,6 +124,16 @@ uint8_t I2CPeek(void)
 static inline void I2CIgnoreUntilNextStart(void)
 {
   USICR = _BV(USISIE) | _BV(USIWM1) | _BV(USICS1);
+  USISR |= _BV(USIOIF);  // Clear the overflow interrupt flag.
+}
+
+// -----------------------------------------------------------------------------
+static inline void I2CPrepareToReadByte(void)
+{
+  // Change SDA pin to output to input
+  I2C_DDR &= ~_BV(SDA);
+  // Set the counter to overflow after 16 edges (8 cycles)
+  USISR = (0 << USISIF) | (1 << USIOIF) | (1 << USIPF) | (1 << USIDC) | 0x00;
 }
 
 // -----------------------------------------------------------------------------
@@ -134,7 +144,7 @@ static inline void I2CSendAck(void)
   // Change SDA pin to output to send ACK (no bit setting required)
   I2C_DDR |= _BV(SDA);
   // Set the counter to overflow after 2 edges (1 cycle)
-  USISR = 0x0E;
+  USISR = (0 << USISIF) | (1 << USIOIF) | (1 << USIPF) | (1 << USIDC) | 0x0E;
 }
 
 // -----------------------------------------------------------------------------
@@ -157,31 +167,20 @@ ISR(USI_START_vect)
 ISR(USI_OVF_vect)
 {
   uint8_t usidr_buffer_ = USIDR;
-  // PORTA ^= _BV(PORTA4);
   switch (state_)
   {
     case I2C_MODE_ADDRESS:
-      if ((usidr_buffer_ == 0) || ((usidr_buffer_ & 0xFE) == I2C_ADDRESS))
+      if (usidr_buffer_ == I2C_ADDRESS)
       {
-        // PORTA ^= _BV(PORTA4);
-        if (!(usidr_buffer_ & 0x01))
-        {
-          new_incoming_data_ = 1;
-          I2CSendAck();
-          state_ = I2C_MODE_ADDRESS_ACK;
-          // PORTA ^= _BV(PORTA4);
-        }
-        else
-        {
-          // TODO: Implement this...
-          I2CIgnoreUntilNextStart();
-          state_ = I2C_MODE_IDLE;
-          // state_ = I2C_MODE_TX_ACK;
-        }
+        // Received a write request addressed to this unit.
+        new_incoming_data_ = 1;
+        I2CSendAck();
+        state_ = I2C_MODE_ADDRESS_ACK;
       }
       else
       {
-        // Disable counter overflow interrupt enable start condition interrupt.
+        // All other scenarios are ignored.  Disable counter overflow interrupt
+        // enable start condition interrupt.
         I2CIgnoreUntilNextStart();
         state_ = I2C_MODE_IDLE;
       }
@@ -189,9 +188,8 @@ ISR(USI_OVF_vect)
     case I2C_MODE_ADDRESS_ACK:
     case I2C_MODE_RX_ACK:
       // Change SDA pin back to input
-      I2C_DDR &= ~_BV(SDA);
+      I2CPrepareToReadByte();
       state_ = I2C_MODE_RX;
-      // PORTA ^= _BV(PORTA4);
       break;
     case I2C_MODE_RX:
       rx_buffer_head_ = (rx_buffer_head_ + 1) & I2C_RX_BUFFER_MASK;
@@ -201,7 +199,7 @@ ISR(USI_OVF_vect)
       state_ = I2C_MODE_RX_ACK;
       break;
     default:
+      I2CIgnoreUntilNextStart();
       break;
   }
-  USISR |= _BV(USIOIF);  // Clear the overflow interrupt flag.
 }

@@ -165,4 +165,5 @@ static void SegmentToYawDeltaCommand(int16_t segment)
     yaw_message.command = delta;
 
   I2CTxBytes(YAW_CONTROLLER_ADDRESS, &yaw_message.byte, 1);
+  I2CWaitUntilCompletion();
 }

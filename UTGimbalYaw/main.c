@@ -38,7 +38,6 @@ int16_t main(void)
   PORTA |= _BV(PORTA4);
   for (;;)
   {
-    while (!I2CDataIncoming()) continue;
     while (!I2CDataInBuffer()) continue;
 
     union {
@@ -46,14 +45,13 @@ int16_t main(void)
       uint8_t byte;
     } yaw_message;
     yaw_message.byte = I2CPeek();
-    if (yaw_message.command == 0) PORTA ^= _BV(PORTA4);
 
     MotorMoveDeltaSegments(yaw_message.command, soft_start_shifter);
 
     if (CheckDelay(stopwatch))
     {
       stopwatch += 500;
-      // PORTA ^= _BV(PORTA4);
+      PORTA ^= _BV(PORTA4);
 
       if (soft_start_shifter) --soft_start_shifter;
     }

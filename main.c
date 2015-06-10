@@ -114,7 +114,7 @@ int16_t main(void)
 */
       MotorSetAngle(MOTOR_A, motor_a_command, soft_start_shifter);
       MotorSetAngle(MOTOR_B, motor_b_command, soft_start_shifter);
-/*
+
       float r = (float)dmp_gyro(2) * DMP_GYRO_TO_RADPS;
 
       float psi = dmp_yaw_angle();
@@ -122,16 +122,12 @@ int16_t main(void)
       static float psi_int = 0.;
       psi_int += psi * DMP_SAMPLE_TIME;
 
-      float yaw_motor_command = 
-        -0.0755626 * r
-        + -1.0447 * psi
-        + -20 * psi_int;
+      float yaw_motor_command =
+        0.0648126 * r
+        + 0.541236 * psi
+        + 10 * psi_int;
 
       MotorSetAngle(MOTOR_YAW, yaw_motor_command, 0);
-*/
-      static float psi_int = 0.;
-      psi_int += 1. / YAW_RADIANS_TO_MOTOR_SEGMENTS;
-      MotorSetAngle(MOTOR_YAW, psi_int, 0);
 
       // Check for frame overrun (turn on green LED)
       if (_status_MPU6050 == MPU6050_DATA_WAITING) {
@@ -146,7 +142,7 @@ int16_t main(void)
       if (!--seconds_counter) {
         seconds_counter = 125;
 
-        // UARTPrintf("%f", dmp_yaw_angle());
+        // UARTPrintf("%f", (float)dmp_gyro(2) * DMP_GYRO_TO_RADPS);
 
         if (soft_start_shifter) --soft_start_shifter;
 
