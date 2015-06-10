@@ -99,7 +99,7 @@ static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift)
 {
   uint8_t stator_pwm[3] = {0};
 
-  while (segment > SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
+  while (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   while (segment < 0) segment += SINE_TABLE_LENGTH;
 
   uint8_t i = 2;
@@ -120,7 +120,7 @@ static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift)
     if (!i--)
       break;  // Quit this loop after i == 0
 
-    segment += SINE_TABLE_LENGTH * 1 / 3;
+    segment += SINE_TABLE_LENGTH / 3;
     if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   }
 

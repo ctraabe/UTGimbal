@@ -52,8 +52,11 @@ void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift)
 {
   static int16_t magnetic_field_direction = 0;
   magnetic_field_direction += delta_segments;
-  if (magnetic_field_direction > SINE_TABLE_LENGTH)
+
+  while (magnetic_field_direction >= SINE_TABLE_LENGTH)
     magnetic_field_direction -= SINE_TABLE_LENGTH;
+  while (magnetic_field_direction < 0)
+    magnetic_field_direction += SINE_TABLE_LENGTH;
 
   int16_t segment = magnetic_field_direction;
   uint8_t stator_pwm[3] = {0}, i = 2;
@@ -74,7 +77,7 @@ void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift)
     if (!i--)
       break;  // Quit this loop after i == 0
 
-    segment += SINE_TABLE_LENGTH * 1 / 3;
+    segment += SINE_TABLE_LENGTH / 3;
     if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   }
 
