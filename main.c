@@ -49,7 +49,7 @@ static void Initialization(void)
 }
 
 // -----------------------------------------------------------------------------
-static void RollPitchController(uint8_t soft_start_shifter)
+static void RollPitchController(void)
 {
   float p = (float)dmp_gyro(0) * DMP_GYRO_TO_RADPS;
   float q = (float)dmp_gyro(1) * DMP_GYRO_TO_RADPS;
@@ -76,13 +76,28 @@ static void RollPitchController(uint8_t soft_start_shifter)
     + 9.01067 * phi_int
     + 20.4648 * tht_int;
 /*
+  float motor_a_command =
+    0. * -0.0586245 * p
+    + 0. * 0.0404012 * q
+    + 0. * -0.947997 * phi
+    + 0. * 0.761743 * tht
+    + -2. * phi_int
+    + 1. * tht_int;
+  float motor_b_command =
+    0. * 0.0128858 * p
+    + 0. * 0.0634179 * q
+    + 0. * -0.0308123 * phi
+    + 0. * 0.983245 * tht
+    + 1. * phi_int
+    + 2. * tht_int;
+
   if (!soft_start_shifter && abs(motor_a_command) > MOTOR_COMMAND_LIMIT)
     status_ = GIMBAL_STATUS_ERROR;
   if (!soft_start_shifter && abs(motor_b_command) > MOTOR_COMMAND_LIMIT)
     status_ = GIMBAL_STATUS_ERROR;
 */
-  MotorSetAngle(MOTOR_A, motor_a_command, soft_start_shifter);
-  MotorSetAngle(MOTOR_B, motor_b_command, soft_start_shifter);
+  MotorSetAngle(MOTOR_A, motor_a_command);
+  MotorSetAngle(MOTOR_B, motor_b_command);
 }
 
 // -----------------------------------------------------------------------------
@@ -98,9 +113,14 @@ static void YawController(void)
   float yaw_motor_command =
     0.0648126 * r
     + 0.541236 * psi
-    + 10 * psi_int;
+    + 10. * psi_int;
 
-  MotorSetAngle(MOTOR_YAW, yaw_motor_command, 0);
+  // float yaw_motor_command =
+  //   0.0 * r
+  //   + 0.0 * psi
+  //   + 1.0 * psi_int;
+
+  MotorSetAngle(MOTOR_YAW, yaw_motor_command);
 }
 
 // -----------------------------------------------------------------------------
@@ -108,19 +128,19 @@ int16_t main(void)
 {
   Initialization();
 
-  uint8_t soft_start_shifter = 4;
   enum DMPCalibrationMode dmp_calibrate_mode = DMP_CALIBRATE_DONE;
 
   // Main loop
   for (;;) {
 
-    if (status_MPU6050_ == MPU6050_DATA_WAITING) {
+    if (status_MPU6050_ == MPU6050_DATA_WAITING)
+    {
       DMPReadFIFO();
       status_MPU6050_ = MPU6050_IDLE;
 
       if (status_ == GIMBAL_STATUS_RUNNING)
       {
-        RollPitchController(soft_start_shifter);
+        RollPitchController();
         YawController();
 
         if (status_ != GIMBAL_STATUS_RUNNING) break;
@@ -128,6 +148,23 @@ int16_t main(void)
       else if (dmp_calibrate_mode)
       {
         DMPCalibrate(&dmp_calibrate_mode);
+      }
+      else if (status_ == GIMBAL_STATUS_STARTING)
+      {
+        static uint8_t button_pv = _BV(PINB4);
+
+        if (button_pv & ~(PINB & _BV(PINB4)))
+        {
+          MotorsKill();
+          dmp_calibrate_mode = DMP_CALIBRATE_START;
+          status_ = GIMBAL_STATUS_CALIBRATION;
+        }
+        else if (MotorsStartup())
+        {
+          status_ = GIMBAL_STATUS_RUNNING;
+        }
+
+        button_pv = PINB & _BV(PINB4);
       }
 
       // Check for frame overrun (turn on green LED)
@@ -141,28 +178,11 @@ int16_t main(void)
       if (!--seconds_counter) {
         seconds_counter = 125;
 
-        // Startup logic.
-        if (status_ == GIMBAL_STATUS_STARTING && dmp_calibrate_mode
-          == DMP_CALIBRATE_DONE) status_ = GIMBAL_STATUS_RUNNING;
-        if (soft_start_shifter) --soft_start_shifter;
-
         // Check for low voltage.
         if (BatteryIsLow())
           PORTD ^= _BV(PORTD2);  // Toggle buzzer
         else
           PORTD &= ~_BV(PORTD2);  // Turn off buzzer
-      }
-
-      // Calibration button
-      if (status_ == GIMBAL_STATUS_STARTING)
-      {
-        static uint8_t button_pv = _BV(PINB4);
-        if (button_pv & ~(PINB & _BV(PINB4)))
-        {
-          dmp_calibrate_mode = DMP_CALIBRATE_START;
-          status_ = GIMBAL_STATUS_CALIBRATION;
-        }
-        button_pv = PINB & _BV(PINB4);
       }
 
       BatteryMeasureVoltage();

@@ -1,6 +1,7 @@
 #include "timer0.h"
 
 #include <avr/io.h>
+#include <util/atomic.h>
 
 
 // ============================================================================+
@@ -52,11 +53,56 @@ void Timer0Init(void)
 }
 
 // -----------------------------------------------------------------------------
+// This function returns the current timestamp.
+int16_t GetTimestamp(void)
+{
+  int16_t ms_timestamp;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
+  return ms_timestamp;
+}
+
+// -----------------------------------------------------------------------------
+// This function returns a timestamp corresponding to "t" ms in the future. This
+// timestamp can be checked against the current timestamp to see if a certain
+// amount of time has passed. This function works for durations up to 32767 ms.
+int16_t GetTimestampMillisFromNow(int16_t t)
+{
+  int16_t ms_timestamp;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
+  return ms_timestamp + t + 1;
+}
+
+// -----------------------------------------------------------------------------
+// This function compares a timestamp to the current timestamp and returns TRUE
+// if the timestamp is in the past. This function works for durations up to
+// 32767 ms.
+uint8_t TimestampInPast(int16_t t)
+{
+  int16_t ms_timestamp;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
+  return (t - ms_timestamp) < 0;
+}
+
+// -----------------------------------------------------------------------------
+// This function returns the amount of time that has elapsed since the timestamp
+// "last_time" has occurred. This function works for time periods up to 65535
+// ms. The function also automatically updates last_time so that it can be
+// easily be called periodically.
+uint16_t MillisSinceTimestamp(int16_t *last_time)
+{
+  int16_t ms_timestamp;
+  ATOMIC_BLOCK(ATOMIC_FORCEON) { ms_timestamp = ms_timestamp_; }
+  uint16_t ret = (uint16_t)(ms_timestamp - *last_time);
+  *last_time = ms_timestamp;
+  return ret;
+}
+
+// -----------------------------------------------------------------------------
 // This function delays execution of the program for "t" ms. Functions triggered
 // by interrupts will still execute during this period. This function works for
 // time periods up to 32767 ms.
 void Wait(uint16_t w)
 {
-  uint16_t timestamp = SetDelay(w);
-  while (!CheckDelay(timestamp));
+  int16_t timestamp = GetTimestampMillisFromNow(w);
+  while (!TimestampInPast(timestamp));
 }

@@ -31,11 +31,11 @@ int16_t main(void)
 {
   Initialization();
 
-  uint8_t soft_start_shifter = 4;
+  // Startup ramp
+  while (MotorsStartup()) Wait(5);
 
   // Main loop
-  uint16_t stopwatch = SetDelay(1000);
-  PORTA |= _BV(PORTA4);
+  uint16_t timer = GetTimestamp();
   for (;;)
   {
     while (!I2CDataInBuffer()) continue;
@@ -46,14 +46,12 @@ int16_t main(void)
     } yaw_message;
     yaw_message.byte = I2CPeek();
 
-    MotorMoveDeltaSegments(yaw_message.command, soft_start_shifter);
+    MotorMoveDeltaSegments(yaw_message.command);
 
-    if (CheckDelay(stopwatch))
+    if (TimestampInPast(timer))
     {
-      stopwatch += 1000;
-      PORTA ^= _BV(PORTA4);
-
-      if (soft_start_shifter) --soft_start_shifter;
+      timer += 500;
+      PORTA ^= _BV(PORTA4);  // Green LED heartbeat
     }
   }
 }

@@ -48,7 +48,21 @@ void MotorPWMTimerInit(void) {
 }
 
 // -----------------------------------------------------------------------------
-void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift)
+uint8_t MotorsStartup(void)
+{
+  static uint8_t ramp = 1;
+  if (ramp)
+  {
+    OCR1A = (uint8_t)((017 * ramp) >> 8);
+    OCR1B = (uint8_t)((238 * ramp) >> 8);
+    OCR1D = (uint8_t)((128 * ramp) >> 8);
+    ramp++;
+  }
+  return ramp;
+}
+
+// -----------------------------------------------------------------------------
+void MotorMoveDeltaSegments(int8_t delta_segments)
 {
   static int16_t magnetic_field_direction = 0;
   magnetic_field_direction += delta_segments;
@@ -81,7 +95,7 @@ void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift)
     if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
   }
 
-  OCR1A = stator_pwm[0] >> shift;  // OC1A is pin B0
-  OCR1B = stator_pwm[1] >> shift;  // OC1B is pin B2
-  OCR1D = stator_pwm[2] >> shift;  // OC1D is pin B4
+  OCR1A = stator_pwm[0];  // OC1A is pin B0
+  OCR1B = stator_pwm[1];  // OC1B is pin B2
+  OCR1D = stator_pwm[2];  // OC1D is pin B4
 }

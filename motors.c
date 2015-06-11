@@ -31,7 +31,7 @@ const uint8_t sin_table_[SINE_TABLE_LENGTH/4] PROGMEM = {
 // =============================================================================
 // Private function declarations:
 
-static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift);
+static void MoveToPosition(enum Motors motor, int16_t segment);
 static void SegmentToYawDeltaCommand(int16_t segment);
 
 
@@ -65,7 +65,7 @@ void MotorPWMTimersInit(void)
 }
 
 // -----------------------------------------------------------------------------
-void MotorSetAngle(enum Motors motor, float angle, uint8_t shift)
+int16_t MotorSetAngle(enum Motors motor, float angle)
 {
   if (motor != MOTOR_YAW)
     angle *= RADIANS_TO_MOTOR_SEGMENTS;
@@ -75,9 +75,28 @@ void MotorSetAngle(enum Motors motor, float angle, uint8_t shift)
   int16_t segment = angle < 0. ? (int16_t)(angle - .5) : (int16_t)(angle + .5);
 
   if (motor != MOTOR_YAW)
-    MoveToPosition(motor, segment, shift);
+    MoveToPosition(motor, segment);
   else
     SegmentToYawDeltaCommand(segment);
+
+  return segment;
+}
+
+// -----------------------------------------------------------------------------
+uint8_t MotorsStartup(void)
+{
+  static uint8_t ramp = 1;
+  if (ramp)
+  {
+    OCR1A = (uint8_t)((017 * ramp) >> 8);
+    OCR1B = (uint8_t)((238 * ramp) >> 8);
+    OCR2A = (uint8_t)((128 * ramp) >> 8);
+    OCR2B = (uint8_t)((017 * ramp) >> 8);
+    OCR0B = (uint8_t)((238 * ramp) >> 8);
+    OCR0A = (uint8_t)((128 * ramp) >> 8);
+    ramp++;
+  }
+  return !ramp;
 }
 
 // -----------------------------------------------------------------------------
@@ -95,7 +114,7 @@ void MotorsKill(void)
 // =============================================================================
 // Private functions:
 
-static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift)
+static void MoveToPosition(enum Motors motor, int16_t segment)
 {
   uint8_t stator_pwm[3] = {0};
 
@@ -122,13 +141,6 @@ static void MoveToPosition(enum Motors motor, int16_t segment, uint8_t shift)
 
     segment += SINE_TABLE_LENGTH / 3;
     if (segment >= SINE_TABLE_LENGTH) segment -= SINE_TABLE_LENGTH;
-  }
-
-  if (shift)
-  {
-    stator_pwm[0] >>= shift;
-    stator_pwm[1] >>= shift;
-    stator_pwm[2] >>= shift;
   }
 
   if (motor == MOTOR_A)

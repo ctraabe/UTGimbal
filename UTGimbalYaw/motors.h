@@ -12,7 +12,8 @@
   / (2.0 * M_PI) / GEARING)
 
 void MotorPWMTimerInit(void);
+uint8_t MotorsStartup(void);
 
-void MotorMoveDeltaSegments(int8_t delta_segments, uint8_t shift);
+void MotorMoveDeltaSegments(int8_t delta_segments);
 
 #endif //_MOTORS_H
