@@ -79,7 +79,11 @@ int16_t MotorSetAngle(enum Motors motor, float angle)
   else
     SegmentToYawDeltaCommand(segment);
 
-  return segment;
+  static int16_t segment_pv = 0;
+  int16_t ret = segment - segment_pv;
+  segment_pv = segment;
+
+  return ret;
 }
 
 // -----------------------------------------------------------------------------
