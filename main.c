@@ -20,7 +20,7 @@
 // Private data:
 
 static volatile enum MPU6050Mode status_MPU6050_ = MPU6050_DATA_WAITING;
-static enum GimbalStatus status_ = GIMBAL_STATUS_STARTING;
+static enum GimbalStatus status_ = GIMBAL_STATUS_MOTOR_STARTING;
 // static volatile enum MAG3110Mode _status_MAG3110 = MAG3110_DATA_WAITING;
 
 
@@ -49,7 +49,7 @@ static void Initialization(void)
 }
 
 // -----------------------------------------------------------------------------
-static void RollPitchController(void)
+static void RollPitchController(uint8_t starting)
 {
   float p = (float)dmp_gyro(0) * DMP_GYRO_TO_RADPS;
   float q = (float)dmp_gyro(1) * DMP_GYRO_TO_RADPS;
@@ -61,47 +61,36 @@ static void RollPitchController(void)
   phi_int += phi * DMP_SAMPLE_TIME;
   tht_int += tht * DMP_SAMPLE_TIME;
 
-  float motor_a_command =
-    -0.0586245 * p
-    + 0.0404012 * q
-    + -0.947997 * phi
-    + 0.761743 * tht
-    + -20.4648 * phi_int
-    + 9.01067 * tht_int;
-  float motor_b_command =
-    0.0128858 * p
-    + 0.0634179 * q
-    + -0.0308123 * phi
-    + 0.983245 * tht
-    + 9.01067 * phi_int
-    + 20.4648 * tht_int;
-/*
-  float motor_a_command =
-    0. * -0.0586245 * p
-    + 0. * 0.0404012 * q
-    + 0. * -0.947997 * phi
-    + 0. * 0.761743 * tht
-    + -2. * phi_int
-    + 1. * tht_int;
-  float motor_b_command =
-    0. * 0.0128858 * p
-    + 0. * 0.0634179 * q
-    + 0. * -0.0308123 * phi
-    + 0. * 0.983245 * tht
-    + 1. * phi_int
-    + 2. * tht_int;
+  float motor_a_command, motor_b_command;
+  if (!starting)
+  {
+    motor_a_command =
+      -0.0586245 * p
+      + 0.0404012 * q
+      + -0.947997 * phi
+      + 0.761743 * tht
+      + -20.4648 * phi_int
+      + 9.01067 * tht_int;
+    motor_b_command =
+      0.0128858 * p
+      + 0.0634179 * q
+      + -0.0308123 * phi
+      + 0.983245 * tht
+      + 9.01067 * phi_int
+      + 20.4648 * tht_int;
+  }
+  else
+  {
+    motor_a_command = -2. * phi_int + 1. * tht_int;
+    motor_b_command = 1. * phi_int + 2. * tht_int;
+  }
 
-  if (!soft_start_shifter && abs(motor_a_command) > MOTOR_COMMAND_LIMIT)
-    status_ = GIMBAL_STATUS_ERROR;
-  if (!soft_start_shifter && abs(motor_b_command) > MOTOR_COMMAND_LIMIT)
-    status_ = GIMBAL_STATUS_ERROR;
-*/
   MotorSetAngle(MOTOR_A, motor_a_command);
   MotorSetAngle(MOTOR_B, motor_b_command);
 }
 
 // -----------------------------------------------------------------------------
-static void YawController(void)
+static void YawController(uint8_t starting)
 {
   float r = (float)dmp_gyro(2) * DMP_GYRO_TO_RADPS;
 
@@ -110,15 +99,18 @@ static void YawController(void)
   static float psi_int = 0.;
   psi_int += psi * DMP_SAMPLE_TIME;
 
-  float yaw_motor_command =
-    0.0648126 * r
-    + 0.541236 * psi
-    + 10. * psi_int;
-
-  // float yaw_motor_command =
-  //   0.0 * r
-  //   + 0.0 * psi
-  //   + 1.0 * psi_int;
+  float yaw_motor_command;
+  if (!starting)
+  {
+    yaw_motor_command =
+      0.0648126 * r
+      + 0.541236 * psi
+      + 10. * psi_int;
+  }
+  else
+  {
+    yaw_motor_command = 1.0 * psi_int;
+  }
 
   MotorSetAngle(MOTOR_YAW, yaw_motor_command);
 }
@@ -129,6 +121,7 @@ int16_t main(void)
   Initialization();
 
   enum DMPCalibrationMode dmp_calibrate_mode = DMP_CALIBRATE_DONE;
+  uint8_t control_starting_timer = 250;
 
   // Main loop
   for (;;) {
@@ -140,8 +133,8 @@ int16_t main(void)
 
       if (status_ == GIMBAL_STATUS_RUNNING)
       {
-        RollPitchController();
-        YawController();
+        RollPitchController(control_starting_timer);
+        YawController(control_starting_timer);
 
         if (status_ != GIMBAL_STATUS_RUNNING) break;
       }
@@ -149,7 +142,7 @@ int16_t main(void)
       {
         DMPCalibrate(&dmp_calibrate_mode);
       }
-      else if (status_ == GIMBAL_STATUS_STARTING)
+      else if (status_ == GIMBAL_STATUS_MOTOR_STARTING)
       {
         static uint8_t button_pv = _BV(PINB4);
 
@@ -198,6 +191,9 @@ int16_t main(void)
       static uint8_t counter_25hz = 1;
       if (!--counter_25hz) {
         counter_25hz = 125 / 25;
+
+        if (control_starting_timer && status_ == GIMBAL_STATUS_RUNNING)
+          control_starting_timer--;
 
         PORTB ^= _BV(PORTB5);  // Fast blink indicates an error occurred
       }
