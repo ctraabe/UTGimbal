@@ -10,6 +10,9 @@
 #define TIMER0_FREQUENCY (125)
 #define UART_BAUD (500000L)
 
+#define MOTOR_ANGLE_LIMIT (0.75)  // Motors A and B should not move far
+#define YAW_MOTOR_ANGLE_LIMIT (1.5)
+
 enum GimbalStatus {
   GIMBAL_STATUS_RUNNING = 0,
   GIMBAL_STATUS_MOTOR_STARTING,

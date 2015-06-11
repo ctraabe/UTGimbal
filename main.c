@@ -57,7 +57,7 @@ static void RollPitchController(uint8_t starting)
   float phi = dmp_roll_angle();
   float tht = dmp_pitch_angle();
 
-  static float phi_int = 0., tht_int = 0.;
+  static float phi_int = 0., tht_int = 0., neutral_a = 0., neutral_b = 0.;
   phi_int += phi * DMP_SAMPLE_TIME;
   tht_int += tht * DMP_SAMPLE_TIME;
 
@@ -83,10 +83,19 @@ static void RollPitchController(uint8_t starting)
   {
     motor_a_command = -2. * phi_int + 1. * tht_int;
     motor_b_command = 1. * phi_int + 2. * tht_int;
+
+    neutral_a = motor_a_command;
+    neutral_b = motor_b_command;
   }
 
-  MotorSetAngle(MOTOR_A, motor_a_command);
-  MotorSetAngle(MOTOR_B, motor_b_command);
+  if ( abs(motor_a_command - neutral_a) > MOTOR_ANGLE_LIMIT
+    || abs(motor_b_command - neutral_b) > MOTOR_ANGLE_LIMIT
+    || abs(MotorSetAngle(MOTOR_A, motor_a_command)) > MOTOR_SEGMENT_LIMIT
+    || abs(MotorSetAngle(MOTOR_B, motor_b_command)) > MOTOR_SEGMENT_LIMIT
+    )
+  {
+    status_ = GIMBAL_STATUS_ERROR;
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -96,23 +105,29 @@ static void YawController(uint8_t starting)
 
   float psi = dmp_yaw_angle();
 
-  static float psi_int = 0.;
+  static float psi_int = 0., neutral = 0.;
   psi_int += psi * DMP_SAMPLE_TIME;
 
-  float yaw_motor_command;
+  float motor_command;
   if (!starting)
   {
-    yaw_motor_command =
+    motor_command =
       0.0648126 * r
       + 0.541236 * psi
       + 10. * psi_int;
   }
   else
   {
-    yaw_motor_command = 1.0 * psi_int;
+    motor_command = 1.0 * psi_int;
+    neutral = motor_command;
   }
 
-  MotorSetAngle(MOTOR_YAW, yaw_motor_command);
+  if ( abs(motor_command - neutral) > YAW_MOTOR_ANGLE_LIMIT
+    || abs(MotorSetAngle(MOTOR_YAW, motor_command)) > YAW_MOTOR_SEGMENT_LIMIT
+    )
+  {
+    status_ = GIMBAL_STATUS_ERROR;
+  }
 }
 
 // -----------------------------------------------------------------------------
